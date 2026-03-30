@@ -1122,6 +1122,8 @@ if [ "$(uname)" = "Darwin" ]; then
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <key>WorkingDirectory</key>
+    <string>$HYPERAGENT_DIR</string>
     <key>StandardOutPath</key>
     <string>/tmp/hyperagent.log</string>
     <key>StandardErrorPath</key>
@@ -1144,6 +1146,7 @@ After=default.target
 [Service]
 Type=simple
 ExecStart=$HYPERAGENT_DIR/watcher.sh
+WorkingDirectory=$HYPERAGENT_DIR
 Restart=on-failure
 RestartSec=10
 
