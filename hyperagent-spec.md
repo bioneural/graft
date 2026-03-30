@@ -27,7 +27,9 @@ hyperagent/
 │   ├── hyperagent-changelog/SKILL.md # /hyperagent-changelog skill. §3.
 │   ├── hyperagent-revert/SKILL.md  # /hyperagent-revert skill. §3.
 │   ├── hyperagent-status/SKILL.md  # /hyperagent-status skill. §3.
-│   └── hyperagent-issue/SKILL.md  # /hyperagent-issue skill. §3.
+│   ├── hyperagent-issue/SKILL.md  # /hyperagent-issue skill. §3.
+│   └── hyperagent-upgrade/SKILL.md # /hyperagent-upgrade skill. §3.
+├── .graft-version             # Graft commit SHA this hyperagent was generated from.
 ├── install.sh                 # Sets up integration points. §10.
 ├── uninstall.sh               # Removes integration points. §11.
 ├── .gitignore                 # §2.
@@ -45,6 +47,7 @@ ledger
 .last-change
 .heartbeat
 .seen/
+.last-upgrade-check
 ```
 
 Everything else is tracked, including `tools/`, `meta_agent.md`, `memory.md`, `changelog.md`, `hooks/`, and `skills/`.
@@ -55,7 +58,7 @@ Everything else is tracked, including `tools/`, `meta_agent.md`, `memory.md`, `c
 
 Skills are the modern Claude Code extensibility system. They live in `.claude/skills/<n>/SKILL.md`, support YAML frontmatter, hot-reload mid-session (no restart required for new or modified skills), and can be auto-invoked or manually invoked via `/name`.
 
-The hyperagent ships five skills. `install.sh` symlinks them into `~/.claude/skills/` so they're available globally. All skill names are prefixed with `hyperagent-` to avoid collisions with other tools.
+The hyperagent ships six skills. `install.sh` symlinks them into `~/.claude/skills/` so they're available globally. All skill names are prefixed with `hyperagent-` to avoid collisions with other tools.
 
 Skills that reference the hyperagent repo directory do so by reading `~/.claude/hyperagent.json`, which `install.sh` creates. This file contains `{"hyperagent_dir": "<resolved path>"}`. Skills remain portable in source — no patching required.
 
@@ -202,6 +205,96 @@ The user wants to report a problem with the hyperagent system. Collect context a
 
 <log tail or "no log found">
 ```
+```
+
+### `skills/hyperagent-upgrade/SKILL.md`
+
+```markdown
+---
+name: hyperagent-upgrade
+description: Check the Graft blueprint for updates and contribute local improvements back. Use when the user asks about upgrades, updates, "check for updates", or wants to contribute back to graft.
+---
+# Hyperagent Upgrade
+
+First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use that path for all file references below.
+
+Your hyperagent is an independent implementation generated from the Graft blueprint (`bioneural/graft`). You own it — you can modify anything. This skill reviews upstream blueprint changes you might want to adopt, and identifies local improvements worth contributing back.
+
+## Part 1: Pull from Graft
+
+1. Fetch recent commits from the Graft repo:
+   ```bash
+   gh api repos/bioneural/graft/commits --jq '.[0:20] | .[] | "\(.sha[0:7]) \(.commit.message | split("\n")[0])"'
+   ```
+
+2. Determine the baseline. Check these in order:
+   - `<hyperagent_dir>/.last-upgrade-check` — the last reviewed commit (set by previous upgrade runs)
+   - `<hyperagent_dir>/.graft-version` — the graft commit this hyperagent was generated from
+
+   ```bash
+   BASELINE=$(cat <hyperagent_dir>/.last-upgrade-check 2>/dev/null || cat <hyperagent_dir>/.graft-version 2>/dev/null)
+   ```
+   If a baseline exists, only show commits newer than that SHA. If neither file exists, show the 10 most recent.
+
+3. For each new commit, fetch the diff:
+   ```bash
+   gh api repos/bioneural/graft/commits/<sha> --jq '.files[] | "\(.filename): \(.status) (+\(.additions)/-\(.deletions))"'
+   ```
+
+4. Present the changes to the user grouped by type:
+   - **Spec changes** (`hyperagent-spec.md`): changes to skill definitions, watcher logic, meta agent behavior, install/uninstall procedures
+   - **Implementation guide changes** (`implement-hyperagent.md`): changes to build/validation steps
+   - **Other**: README, new files, etc.
+
+5. For each relevant change, analyze whether it applies to the user's hyperagent:
+   - Is it a new skill? → Could be added directly.
+   - Is it a change to an existing skill? → Compare with the local version and suggest a merge.
+   - Is it a watcher or hook change? → Show the diff and explain what it would change.
+   - Is it a meta agent change? → The meta agent self-modifies, so flag for the user's judgment.
+
+6. Ask the user which changes (if any) to incorporate. For approved changes:
+   - Read the relevant section from the upstream spec: `gh api repos/bioneural/graft/contents/hyperagent-spec.md --jq '.content' | base64 -d`
+   - Apply the change to the local hyperagent file.
+   - Log the incorporation in `<hyperagent_dir>/changelog.md`.
+
+## Part 2: Contribute Back to Graft
+
+7. Review local changes that diverge from the blueprint. The generation baseline is in `<hyperagent_dir>/.graft-version` — this is the graft commit the hyperagent was originally built from. Compare key files against the upstream spec at that baseline and at HEAD to distinguish local customizations from upstream drift:
+   - `meta_agent.md` — has the meta agent evolved strategies worth sharing?
+   - `skills/` — any new skills or significant skill improvements?
+   - `tools/` — any tools that solve common problems?
+   - `watcher.sh`, `hooks/` — any bug fixes or robustness improvements?
+
+   To diff, fetch the upstream version and compare:
+   ```bash
+   gh api repos/bioneural/graft/contents/hyperagent-spec.md --jq '.content' | base64 -d > /tmp/graft-spec.md
+   ```
+
+8. For each meaningful local divergence, assess whether it's:
+   - **A bug fix** → worth contributing as an issue or PR
+   - **A new capability** (skill, tool, strategy) → worth contributing as an issue describing the idea
+   - **A local customization** → specific to this user, skip
+   - **A meta agent self-modification** → potentially interesting if it represents a general improvement
+
+9. Present candidates to the user. For each one the user approves:
+   - **File as an issue**: Use `/hyperagent-issue` to file on `bioneural/graft` with the local change as context.
+   - **Open a PR**: Fork graft (if not already forked), create a branch, apply the change to the spec, and open a PR:
+     ```bash
+     gh repo fork bioneural/graft --clone=false 2>/dev/null || true
+     gh api repos/bioneural/graft/contents/hyperagent-spec.md --jq '.content' | base64 -d > /tmp/graft-spec.md
+     ```
+     Then guide the user through the PR creation.
+
+## Wrap Up
+
+10. Save the latest reviewed commit SHA:
+    ```bash
+    echo "<latest_sha>" > <hyperagent_dir>/.last-upgrade-check
+    ```
+
+11. Tell the user to `/hyperagent-reload` if any CLAUDE.md or hook files were affected.
+
+If the user provides arguments: $ARGUMENTS — use them to filter (e.g. "just pull", "just contribute", "last 3 commits", "show everything").
 ```
 
 ---

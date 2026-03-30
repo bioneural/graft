@@ -47,8 +47,17 @@ Create every file listed in §1 of the spec, with the exact contents specified i
 11. `skills/hyperagent-revert/SKILL.md` — §3.
 12. `skills/hyperagent-status/SKILL.md` — §3.
 13. `skills/hyperagent-issue/SKILL.md` — §3.
-14. `install.sh` — §10. Mark executable.
-15. `uninstall.sh` — §11. Mark executable.
+14. `skills/hyperagent-upgrade/SKILL.md` — §3.
+15. `install.sh` — §10. Mark executable.
+16. `uninstall.sh` — §11. Mark executable.
+
+After creating all files, stamp the graft version used to generate the hyperagent:
+
+```bash
+gh api repos/bioneural/graft/commits --jq '.[0].sha' > .graft-version
+```
+
+This records which graft commit the hyperagent was generated from. The `/hyperagent-upgrade` skill uses it as the baseline for diffing upstream changes.
 
 Do NOT create runtime files (`ledger`, `.last-check`, `.lock`, `.last-change`, `.heartbeat`, `.seen/`). These are created by `install.sh` or at runtime.
 
@@ -60,6 +69,8 @@ Create `README.md` with the content below. Replace `GH_USER` with the actual Git
 # Hyperagent
 
 A self-improving system for Claude Code. It observes your sessions, identifies patterns in what goes well and what doesn't, and modifies Claude Code's configuration to improve over time. It can also modify its own observation and improvement strategies.
+
+**You own your hyperagent.** It was generated from the [Graft](https://github.com/bioneural/graft) blueprint, but it's yours now — an independent repo you can modify, extend, or rewrite however you want. Use `/hyperagent-upgrade` to pull blueprint updates into your hyperagent and contribute your best local improvements back to Graft.
 
 ## Install
 
@@ -94,6 +105,7 @@ Restart Claude Code to pick up the hooks. The watcher runs as a system service �
 - `/hyperagent-revert` — roll back a specific hyperagent change
 - `/hyperagent-status` — check watcher health and recent activity
 - `/hyperagent-issue` — file an issue on the Graft repo with diagnostics
+- `/hyperagent-upgrade` — check for Graft blueprint updates and contribute local improvements back
 
 ## Rollback
 
@@ -124,8 +136,8 @@ cd INSTALL_DIR
 # All required files exist
 for f in .gitignore meta_agent.md watcher.sh memory.md changelog.md \
          hooks/on-session-start.sh hooks/on-prompt.sh \
-         skills/hyperagent-reload/SKILL.md skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md \
-         install.sh uninstall.sh README.md tools/.gitkeep; do
+         skills/hyperagent-reload/SKILL.md skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md skills/hyperagent-upgrade/SKILL.md \
+         install.sh uninstall.sh README.md tools/.gitkeep .graft-version; do
     [ -f "$f" ] || { echo "MISSING: $f"; exit 1; }
 done
 
@@ -135,14 +147,17 @@ for f in watcher.sh hooks/on-session-start.sh hooks/on-prompt.sh install.sh unin
 done
 
 # .gitignore contains required entries
-for entry in ledger .last-check .lock .last-change .heartbeat .seen/; do
+for entry in ledger .last-check .lock .last-change .heartbeat .seen/ .last-upgrade-check; do
     grep -qF "$entry" .gitignore || { echo "MISSING FROM .gitignore: $entry"; exit 1; }
 done
 
 # Skills reference the config file for path resolution
-for f in skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md; do
+for f in skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md skills/hyperagent-upgrade/SKILL.md; do
     grep -q "hyperagent.json" "$f" || { echo "MISSING CONFIG REFERENCE: $f"; exit 1; }
 done
+
+# .graft-version contains a commit SHA
+grep -qE '^[0-9a-f]{40}$' .graft-version || { echo "FAIL: .graft-version missing or invalid"; exit 1; }
 
 # No python references
 grep -r "python3\|python" --include="*.sh" --include="*.md" . && { echo "FAIL: python reference found"; exit 1; } || true
