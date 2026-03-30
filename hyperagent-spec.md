@@ -26,7 +26,8 @@ hyperagent/
 │   ├── hyperagent-reload/SKILL.md  # /hyperagent-reload skill. §3.
 │   ├── hyperagent-changelog/SKILL.md # /hyperagent-changelog skill. §3.
 │   ├── hyperagent-revert/SKILL.md  # /hyperagent-revert skill. §3.
-│   └── hyperagent-status/SKILL.md  # /hyperagent-status skill. §3.
+│   ├── hyperagent-status/SKILL.md  # /hyperagent-status skill. §3.
+│   └── hyperagent-issue/SKILL.md  # /hyperagent-issue skill. §3.
 ├── install.sh                 # Sets up integration points. §10.
 ├── uninstall.sh               # Removes integration points. §11.
 ├── .gitignore                 # §2.
@@ -54,7 +55,7 @@ Everything else is tracked, including `tools/`, `meta_agent.md`, `memory.md`, `c
 
 Skills are the modern Claude Code extensibility system. They live in `.claude/skills/<n>/SKILL.md`, support YAML frontmatter, hot-reload mid-session (no restart required for new or modified skills), and can be auto-invoked or manually invoked via `/name`.
 
-The hyperagent ships four skills. `install.sh` symlinks them into `~/.claude/skills/` so they're available globally. All skill names are prefixed with `hyperagent-` to avoid collisions with other tools.
+The hyperagent ships five skills. `install.sh` symlinks them into `~/.claude/skills/` so they're available globally. All skill names are prefixed with `hyperagent-` to avoid collisions with other tools.
 
 ### `skills/hyperagent-reload/SKILL.md`
 
@@ -141,6 +142,62 @@ Check the following and report to the user:
 Format the output clearly. If the watcher is not running, tell the user how to restart it:
 - macOS: `launchctl kickstart -k gui/$(id -u)/com.bioneural.hyperagent`
 - Linux: `systemctl --user restart hyperagent.service`
+```
+
+`install.sh` replaces `HYPERAGENT_DIR_PLACEHOLDER` with the actual absolute path.
+
+### `skills/hyperagent-issue/SKILL.md`
+
+```markdown
+---
+name: hyperagent-issue
+description: File an issue on the Graft repo with system context. Use when the user reports a problem with the hyperagent, or says "file an issue", "report a bug", or similar.
+disable-model-invocation: true
+---
+# File a Graft Issue
+
+The user wants to report a problem with the hyperagent system. Collect context and file an issue on bioneural/graft.
+
+1. Ask the user to describe the problem if they haven't already. Use $ARGUMENTS if provided.
+
+2. Gather diagnostic context automatically:
+   - OS: `uname -s -r`
+   - Claude Code version: `claude --version 2>&1`
+   - Watcher status: check if `HYPERAGENT_DIR_PLACEHOLDER/.heartbeat` exists and its age
+   - Last 5 changelog entries (timestamps and TL;DR only) from `HYPERAGENT_DIR_PLACEHOLDER/changelog.md`
+   - Last 20 lines of `/tmp/hyperagent.log` if it exists
+   - Whether the meta agent has been modified: `git -C HYPERAGENT_DIR_PLACEHOLDER diff HEAD -- meta_agent.md | head -20`
+
+3. Show the user a preview of the issue title and body. Ask for confirmation before filing.
+
+4. File the issue:
+   ```bash
+   gh issue create --repo bioneural/graft --title "<title>" --body "<body>"
+   ```
+
+5. Show the user the issue URL.
+
+**Body format:**
+```
+## Description
+
+<user's description>
+
+## Diagnostics
+
+- OS: <os>
+- Claude Code: <version>
+- Watcher heartbeat: <age or "missing">
+- Meta agent modified: <yes/no>
+
+## Recent changelog
+
+<last 5 entries>
+
+## Watcher log (last 20 lines)
+
+<log tail or "no log found">
+```
 ```
 
 `install.sh` replaces `HYPERAGENT_DIR_PLACEHOLDER` with the actual absolute path.
@@ -308,6 +365,24 @@ You start knowing only about session transcripts. Over time you will see evidenc
 1. Record it in memory: what it is, how you found it, how to access it (MCP server name if available).
 2. On future cycles, try to use it. If the MCP server is connected, query it. If not, note that in memory and work with whatever signal appears in transcripts.
 3. Consider building a tool in $HYPERAGENT_DIR/tools/ to automate querying the signal source, and ensure it is referenced from wherever it needs to be called.
+
+## Filing issues on Graft
+
+If you encounter a problem you cannot resolve — a spec inconsistency, a Claude CLI behavior change that breaks your assumptions, a transcript format change, or a pattern you believe is a bug in the hyperagent system itself — you may file an issue on the Graft repo.
+
+```bash
+gh issue create --repo bioneural/graft \
+    --title "<concise title>" \
+    --body "<description with diagnostics>"
+```
+
+Include in the body: what you observed, what you expected, the OS (`uname -s -r`), Claude Code version (`claude --version`), and any relevant log output or transcript excerpts.
+
+**Constraints:**
+- Check for duplicates first: `gh issue list --repo bioneural/graft --search "<keywords>" --state open`
+- Do not file more than one issue per cycle.
+- Do not file issues about user-specific preferences or project-specific patterns. Only file issues about the hyperagent system itself.
+- Record in memory that you filed an issue, including the issue number, so you don't file duplicates on subsequent cycles.
 
 ## Housekeeping
 

@@ -112,12 +112,13 @@ For global files: the changelog is the version history. Rollback reads the previ
 
 For project files: changes are committed with author `Hyperagent <hyperagent@local>` and prefix `[hyperagent]`. Rollback is `git revert`.
 
-Three skills are provided:
+Five skills are provided:
 
 - `/hyperagent-reload` — restart Claude Code to apply configuration changes.
 - `/hyperagent-changelog` — display recent modifications.
 - `/hyperagent-revert` — roll back a specific change.
 - `/hyperagent-status` — check whether the watcher is running and show recent activity.
+- `/hyperagent-issue` — file an issue on the Graft repo with system diagnostics attached.
 
 ---
 

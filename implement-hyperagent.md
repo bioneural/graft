@@ -46,8 +46,9 @@ Create every file listed in §1 of the spec, with the exact contents specified i
 10. `skills/hyperagent-changelog/SKILL.md` — §3. Leave `HYPERAGENT_DIR_PLACEHOLDER` as-is. `install.sh` patches it.
 11. `skills/hyperagent-revert/SKILL.md` — §3. Leave `HYPERAGENT_DIR_PLACEHOLDER` as-is.
 12. `skills/hyperagent-status/SKILL.md` — §3. Leave `HYPERAGENT_DIR_PLACEHOLDER` as-is.
-13. `install.sh` — §10. Mark executable.
-14. `uninstall.sh` — §11. Mark executable.
+13. `skills/hyperagent-issue/SKILL.md` — §3. Leave `HYPERAGENT_DIR_PLACEHOLDER` as-is.
+14. `install.sh` — §10. Mark executable.
+15. `uninstall.sh` — §11. Mark executable.
 
 Do NOT create runtime files (`ledger`, `.last-check`, `.lock`, `.last-change`, `.heartbeat`, `.seen/`). These are created by `install.sh` or at runtime.
 
@@ -92,6 +93,7 @@ Restart Claude Code to pick up the hooks. The watcher runs as a system service �
 - `/hyperagent-changelog` — show recent hyperagent changes
 - `/hyperagent-revert` — roll back a specific hyperagent change
 - `/hyperagent-status` — check watcher health and recent activity
+- `/hyperagent-issue` — file an issue on the Graft repo with diagnostics
 
 ## Rollback
 
@@ -122,7 +124,7 @@ cd INSTALL_DIR
 # All required files exist
 for f in .gitignore meta_agent.md watcher.sh memory.md changelog.md \
          hooks/on-session-start.sh hooks/on-prompt.sh \
-         skills/hyperagent-reload/SKILL.md skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md \
+         skills/hyperagent-reload/SKILL.md skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md \
          install.sh uninstall.sh README.md tools/.gitkeep; do
     [ -f "$f" ] || { echo "MISSING: $f"; exit 1; }
 done
@@ -138,7 +140,7 @@ for entry in ledger .last-check .lock .last-change .heartbeat .seen/; do
 done
 
 # Skills contain placeholder (not yet patched)
-for f in skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md; do
+for f in skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md; do
     grep -q "HYPERAGENT_DIR_PLACEHOLDER" "$f" || { echo "MISSING PLACEHOLDER: $f"; exit 1; }
 done
 
