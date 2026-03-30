@@ -836,6 +836,22 @@ set -euo pipefail
 HYPERAGENT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 
+# --- TCC directory check (macOS) ---
+check_tcc_safe() {
+    if [ "$(uname)" != "Darwin" ]; then return 0; fi
+    local resolved
+    resolved=$(cd "$1" 2>/dev/null && pwd -P || echo "$1")
+    case "$resolved" in
+        "$HOME/Desktop"*|"$HOME/Documents"*|"$HOME/Downloads"*)
+            echo "ERROR: $1 is under a macOS TCC-protected directory."
+            echo "LaunchAgents cannot access ~/Desktop, ~/Documents, or ~/Downloads."
+            echo "Use a path outside these directories, e.g. ~/hyperagent"
+            exit 1
+            ;;
+    esac
+}
+check_tcc_safe "$HYPERAGENT_DIR"
+
 echo "=== Installing Hyperagent ==="
 
 # Prerequisites

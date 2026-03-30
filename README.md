@@ -28,6 +28,8 @@ Or specify where to install (defaults to `~/hyperagent`):
 bash <(curl -sL -H "Accept: application/vnd.github.raw" https://api.github.com/repos/bioneural/graft/contents/bootstrap.sh) ~/repos/hyperagent
 ```
 
+**Note (macOS):** The install directory must not be under `~/Desktop`, `~/Documents`, or `~/Downloads`. These are TCC-protected directories that LaunchAgents cannot access. Use the default (`~/hyperagent`) or another path outside those directories.
+
 This downloads the specification, delivers it to Claude Code, and Claude Code constructs a private `hyperagent` repo under your GitHub account. The install script configures hooks and starts the watcher as a system service. Restart Claude Code once. The system is operational.
 
 ---

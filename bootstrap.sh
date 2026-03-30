@@ -3,6 +3,22 @@ set -euo pipefail
 
 INSTALL_DIR="${1:-$HOME/hyperagent}"
 
+# --- TCC directory check (macOS) ---
+check_tcc_safe() {
+    if [ "$(uname)" != "Darwin" ]; then return 0; fi
+    local resolved
+    resolved=$(cd "$1" 2>/dev/null && pwd -P || echo "$1")
+    case "$resolved" in
+        "$HOME/Desktop"*|"$HOME/Documents"*|"$HOME/Downloads"*)
+            echo "ERROR: $1 is under a macOS TCC-protected directory."
+            echo "LaunchAgents cannot access ~/Desktop, ~/Documents, or ~/Downloads."
+            echo "Use a path outside these directories, e.g. ~/hyperagent"
+            exit 1
+            ;;
+    esac
+}
+check_tcc_safe "$INSTALL_DIR"
+
 echo "=== Graft: bootstrapping your hyperagent ==="
 echo ""
 echo "Install directory: $INSTALL_DIR"
