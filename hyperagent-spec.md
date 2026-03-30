@@ -197,13 +197,19 @@ The user wants to report a problem with the hyperagent system. Collect context a
 - Watcher heartbeat: <age or "missing">
 - Meta agent modified: <yes/no>
 
-## Recent changelog
+<details>
+<summary>Recent changelog</summary>
 
 <last 5 entries>
 
-## Watcher log (last 20 lines)
+</details>
+
+<details>
+<summary>Watcher log (last 20 lines)</summary>
 
 <log tail or "no log found">
+
+</details>
 ```
 ```
 
