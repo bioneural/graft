@@ -29,6 +29,7 @@ hyperagent/
 │   ├── hyperagent-status/SKILL.md  # /hyperagent-status skill. §3.
 │   ├── hyperagent-issue/SKILL.md  # /hyperagent-issue skill. §3.
 │   └── hyperagent-upgrade/SKILL.md # /hyperagent-upgrade skill. §3.
+├── .graft-version             # Graft commit SHA this hyperagent was generated from.
 ├── install.sh                 # Sets up integration points. §10.
 ├── uninstall.sh               # Removes integration points. §11.
 ├── .gitignore                 # §2.
@@ -226,11 +227,14 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
    gh api repos/bioneural/graft/commits --jq '.[0:20] | .[] | "\(.sha[0:7]) \(.commit.message | split("\n")[0])"'
    ```
 
-2. Check if there's a local marker for the last reviewed commit:
+2. Determine the baseline. Check these in order:
+   - `<hyperagent_dir>/.last-upgrade-check` — the last reviewed commit (set by previous upgrade runs)
+   - `<hyperagent_dir>/.graft-version` — the graft commit this hyperagent was generated from
+
    ```bash
-   cat <hyperagent_dir>/.last-upgrade-check 2>/dev/null
+   BASELINE=$(cat <hyperagent_dir>/.last-upgrade-check 2>/dev/null || cat <hyperagent_dir>/.graft-version 2>/dev/null)
    ```
-   If the marker exists, only show commits newer than that SHA. If not, show the 10 most recent.
+   If a baseline exists, only show commits newer than that SHA. If neither file exists, show the 10 most recent.
 
 3. For each new commit, fetch the diff:
    ```bash
@@ -255,7 +259,7 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
 
 ## Part 2: Contribute Back to Graft
 
-7. Review local changes that diverge from the blueprint. Compare key files against the upstream spec:
+7. Review local changes that diverge from the blueprint. The generation baseline is in `<hyperagent_dir>/.graft-version` — this is the graft commit the hyperagent was originally built from. Compare key files against the upstream spec at that baseline and at HEAD to distinguish local customizations from upstream drift:
    - `meta_agent.md` — has the meta agent evolved strategies worth sharing?
    - `skills/` — any new skills or significant skill improvements?
    - `tools/` — any tools that solve common problems?

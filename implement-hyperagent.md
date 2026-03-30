@@ -51,6 +51,14 @@ Create every file listed in §1 of the spec, with the exact contents specified i
 15. `install.sh` — §10. Mark executable.
 16. `uninstall.sh` — §11. Mark executable.
 
+After creating all files, stamp the graft version used to generate the hyperagent:
+
+```bash
+gh api repos/bioneural/graft/commits --jq '.[0].sha' > .graft-version
+```
+
+This records which graft commit the hyperagent was generated from. The `/hyperagent-upgrade` skill uses it as the baseline for diffing upstream changes.
+
 Do NOT create runtime files (`ledger`, `.last-check`, `.lock`, `.last-change`, `.heartbeat`, `.seen/`). These are created by `install.sh` or at runtime.
 
 ## Step 3: Create the README
@@ -129,7 +137,7 @@ cd INSTALL_DIR
 for f in .gitignore meta_agent.md watcher.sh memory.md changelog.md \
          hooks/on-session-start.sh hooks/on-prompt.sh \
          skills/hyperagent-reload/SKILL.md skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md skills/hyperagent-upgrade/SKILL.md \
-         install.sh uninstall.sh README.md tools/.gitkeep; do
+         install.sh uninstall.sh README.md tools/.gitkeep .graft-version; do
     [ -f "$f" ] || { echo "MISSING: $f"; exit 1; }
 done
 
@@ -147,6 +155,9 @@ done
 for f in skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md skills/hyperagent-upgrade/SKILL.md; do
     grep -q "hyperagent.json" "$f" || { echo "MISSING CONFIG REFERENCE: $f"; exit 1; }
 done
+
+# .graft-version contains a commit SHA
+grep -qE '^[0-9a-f]{40}$' .graft-version || { echo "FAIL: .graft-version missing or invalid"; exit 1; }
 
 # No python references
 grep -r "python3\|python" --include="*.sh" --include="*.md" . && { echo "FAIL: python reference found"; exit 1; } || true
