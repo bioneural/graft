@@ -421,6 +421,7 @@ commit_hyperagent_repo() {
         git commit --author="Hyperagent <hyperagent@local>" \
             -m "[hyperagent] ${tl_dr:-auto-commit}" \
             2>/dev/null || true
+        git push 2>/dev/null || true
     fi
 }
 
