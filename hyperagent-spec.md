@@ -882,6 +882,20 @@ Initial contents:
 
 Accumulated insights across cycles. Read at the start of each cycle, updated at the end.
 
+## Skill Best Practices
+
+Lessons from Anthropic's internal skill management (source: "Lessons from Building Claude Code: How We Use Skills" by Thariq, Mar 2026). Apply these when creating or modifying skills:
+
+- **Description field is a trigger condition.** The model scans it to decide relevance. Write "use when X", not a human summary. Poorly written descriptions cause hallucinated skill selections.
+- **Progressive disclosure via folder structure.** Complex skills benefit from subdirectories (references/, scripts/, examples/) alongside SKILL.md. The agent reads sub-files on demand rather than loading everything into context. Reduces token usage.
+- **Gotchas sections are the highest-signal content.** Build them from actual agent failure modes. Update them over time. A skill without gotchas is a skill that hasn't been tested enough.
+- **Script composition pattern.** Bundle helper functions/libraries in skills so the agent composes them rather than reconstructing boilerplate each time.
+- **Nine skill categories exist:** Library/API Reference, Product Verification, Data Fetching/Analysis, Business Process Automation, Code Scaffolding, Code Quality/Review, CI/CD & Deployment, Runbooks, Infrastructure Operations. Useful for identifying coverage gaps when the skill count grows.
+- **On-demand hooks.** Skills can register hooks that activate only when invoked and last for the session (e.g., block destructive commands, restrict edits to a directory). Consider when building safety-critical skills.
+- **Measure skill usage.** Track invocations to find skills that are popular or undertriggering. The transcript already captures this signal — mine it.
+- **Persistent skill memory.** Skills may need cross-session state (logs, JSON, SQLite). Consider when building skills that learn from repeated use.
+- **Curation before distribution.** Experimental skills should prove their value before becoming permanent. Remove or consolidate skills that underperform.
+
 ## Observations
 
 _No observations yet._
