@@ -48,6 +48,7 @@ ledger
 .heartbeat
 .seen/
 .last-upgrade-check
+.upgrade-available
 ```
 
 Everything else is tracked, including `tools/`, `meta_agent.md`, `memory.md`, `changelog.md`, `hooks/`, and `skills/`.
@@ -298,7 +299,12 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
     echo "<latest_sha>" > <hyperagent_dir>/.last-upgrade-check
     ```
 
-11. Tell the user to `/hyperagent-reload` if any CLAUDE.md or hook files were affected.
+11. Delete the upgrade notification file:
+    ```bash
+    rm -f <hyperagent_dir>/.upgrade-available
+    ```
+
+12. Tell the user to `/hyperagent-reload` if any CLAUDE.md or hook files were affected.
 
 If the user provides arguments: $ARGUMENTS — use them to filter (e.g. "just pull", "just contribute", "last 3 commits", "show everything").
 ```
@@ -528,6 +534,8 @@ CHANGELOG="$HYPERAGENT_DIR/changelog.md"
 IDLE_THRESHOLD=300
 CHECK_INTERVAL=60
 META_AGENT="$HYPERAGENT_DIR/meta_agent.md"
+UPGRADE_AVAILABLE="$HYPERAGENT_DIR/.upgrade-available"
+UPGRADE_CHECK_INTERVAL="${UPGRADE_CHECK_INTERVAL:-604800}"  # 7 days
 
 touch "$LEDGER" "$MARKER"
 mkdir -p "$SEEN_DIR"
@@ -627,6 +635,42 @@ write_last_change() {
 cleanup_seen() {
     # Remove .seen files older than 48 hours
     find "$SEEN_DIR" -type f -mmin +2880 -delete 2>/dev/null || true
+}
+
+check_upstream_upgrade() {
+    # Determine when we last polled upstream
+    local last_poll=0
+    if [ -f "$HYPERAGENT_DIR/.last-upstream-poll" ]; then
+        last_poll=$(get_mtime "$HYPERAGENT_DIR/.last-upstream-poll")
+    fi
+    local now
+    now=$(now_epoch)
+    if [ $((now - last_poll)) -lt "$UPGRADE_CHECK_INTERVAL" ]; then
+        return
+    fi
+
+    # Record that we polled, regardless of outcome
+    touch "$HYPERAGENT_DIR/.last-upstream-poll"
+
+    # Determine baseline SHA
+    local baseline=""
+    if [ -f "$HYPERAGENT_DIR/.last-upgrade-check" ]; then
+        baseline=$(cat "$HYPERAGENT_DIR/.last-upgrade-check" 2>/dev/null || echo "")
+    elif [ -f "$HYPERAGENT_DIR/.graft-version" ]; then
+        baseline=$(cat "$HYPERAGENT_DIR/.graft-version" 2>/dev/null || echo "")
+    fi
+
+    # Fetch latest graft commit SHA (fail silently on network errors)
+    local latest
+    latest=$(gh api repos/bioneural/graft/commits/main --jq '.sha' 2>/dev/null) || return
+    if [ -z "$latest" ]; then
+        return
+    fi
+
+    # Compare and write notification if different
+    if [ "$latest" != "$baseline" ]; then
+        printf '%s\t%s\n' "$now" "New commits on bioneural/graft since last upgrade check" > "$UPGRADE_AVAILABLE"
+    fi
 }
 
 run_meta_agent() {
@@ -769,6 +813,9 @@ while true; do
     # Write heartbeat so hooks and /hyperagent-status can detect a stalled watcher
     date +%s > "$HEARTBEAT"
 
+    # Periodic upstream upgrade check
+    check_upstream_upgrade
+
     modified=$(find "$PROJECTS_DIR" -name "*.jsonl" -newer "$MARKER" -type f 2>/dev/null || true)
     touch "$MARKER"
 
@@ -872,6 +919,7 @@ Fires on session startup, resume, clear, and compact.
 #!/usr/bin/env bash
 HYPERAGENT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LAST_CHANGE="$HYPERAGENT_DIR/.last-change"
+UPGRADE_AVAILABLE="$HYPERAGENT_DIR/.upgrade-available"
 HEARTBEAT="$HYPERAGENT_DIR/.heartbeat"
 SEEN_DIR="$HYPERAGENT_DIR/.seen"
 
@@ -898,6 +946,15 @@ fi
 
 if [ -n "$WATCHER_DOWN" ]; then
     echo "{\"additionalContext\": \"[Hyperagent] WARNING: watcher is not running. Run /hyperagent-status for details.\"}"
+fi
+
+# --- Upgrade available check ---
+if [ -f "$UPGRADE_AVAILABLE" ]; then
+    mkdir -p "$SEEN_DIR"
+    if [ ! -f "$SEEN_DIR/$SESSION_ID.upgrade" ]; then
+        echo "{\"additionalContext\": \"[Hyperagent] Graft blueprint updates available. Run /hyperagent-upgrade to review.\"}"
+        touch "$SEEN_DIR/$SESSION_ID.upgrade"
+    fi
 fi
 
 if [ ! -f "$LAST_CHANGE" ]; then
@@ -941,6 +998,7 @@ Fires on every `UserPromptSubmit`. Same logic as `on-session-start.sh` — check
 #!/usr/bin/env bash
 HYPERAGENT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LAST_CHANGE="$HYPERAGENT_DIR/.last-change"
+UPGRADE_AVAILABLE="$HYPERAGENT_DIR/.upgrade-available"
 HEARTBEAT="$HYPERAGENT_DIR/.heartbeat"
 SEEN_DIR="$HYPERAGENT_DIR/.seen"
 
@@ -966,6 +1024,15 @@ fi
 
 if [ -n "$WATCHER_DOWN" ]; then
     echo "{\"additionalContext\": \"[Hyperagent] WARNING: watcher is not running. Run /hyperagent-status for details.\"}"
+fi
+
+# --- Upgrade available check ---
+if [ -f "$UPGRADE_AVAILABLE" ]; then
+    mkdir -p "$SEEN_DIR"
+    if [ ! -f "$SEEN_DIR/$SESSION_ID.upgrade" ]; then
+        echo "{\"additionalContext\": \"[Hyperagent] Graft blueprint updates available. Run /hyperagent-upgrade to review.\"}"
+        touch "$SEEN_DIR/$SESSION_ID.upgrade"
+    fi
 fi
 
 if [ ! -f "$LAST_CHANGE" ]; then
