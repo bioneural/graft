@@ -147,7 +147,7 @@ for f in watcher.sh hooks/on-session-start.sh hooks/on-prompt.sh install.sh unin
 done
 
 # .gitignore contains required entries
-for entry in ledger .last-check .lock .last-change .heartbeat .seen/ .last-upgrade-check; do
+for entry in ledger .last-check .lock .last-change .heartbeat .seen/ .last-upgrade-check .upgrade-available; do
     grep -qF "$entry" .gitignore || { echo "MISSING FROM .gitignore: $entry"; exit 1; }
 done
 
