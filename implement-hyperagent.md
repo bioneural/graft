@@ -43,10 +43,10 @@ Create every file listed in §1 of the spec, with the exact contents specified i
 7. `hooks/on-session-start.sh` — §9. Mark executable.
 8. `hooks/on-prompt.sh` — §9. Mark executable.
 9. `skills/hyperagent-reload/SKILL.md` — §3
-10. `skills/hyperagent-changelog/SKILL.md` — §3. Leave `HYPERAGENT_DIR_PLACEHOLDER` as-is. `install.sh` patches it.
-11. `skills/hyperagent-revert/SKILL.md` — §3. Leave `HYPERAGENT_DIR_PLACEHOLDER` as-is.
-12. `skills/hyperagent-status/SKILL.md` — §3. Leave `HYPERAGENT_DIR_PLACEHOLDER` as-is.
-13. `skills/hyperagent-issue/SKILL.md` — §3. Leave `HYPERAGENT_DIR_PLACEHOLDER` as-is.
+10. `skills/hyperagent-changelog/SKILL.md` — §3. Skills read `~/.claude/hyperagent.json` for the repo path at runtime.
+11. `skills/hyperagent-revert/SKILL.md` — §3.
+12. `skills/hyperagent-status/SKILL.md` — §3.
+13. `skills/hyperagent-issue/SKILL.md` — §3.
 14. `install.sh` — §10. Mark executable.
 15. `uninstall.sh` — §11. Mark executable.
 
@@ -139,9 +139,9 @@ for entry in ledger .last-check .lock .last-change .heartbeat .seen/; do
     grep -qF "$entry" .gitignore || { echo "MISSING FROM .gitignore: $entry"; exit 1; }
 done
 
-# Skills contain placeholder (not yet patched)
+# Skills reference the config file for path resolution
 for f in skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md; do
-    grep -q "HYPERAGENT_DIR_PLACEHOLDER" "$f" || { echo "MISSING PLACEHOLDER: $f"; exit 1; }
+    grep -q "hyperagent.json" "$f" || { echo "MISSING CONFIG REFERENCE: $f"; exit 1; }
 done
 
 # No python references

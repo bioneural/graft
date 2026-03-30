@@ -57,6 +57,8 @@ Skills are the modern Claude Code extensibility system. They live in `.claude/sk
 
 The hyperagent ships five skills. `install.sh` symlinks them into `~/.claude/skills/` so they're available globally. All skill names are prefixed with `hyperagent-` to avoid collisions with other tools.
 
+Skills that reference the hyperagent repo directory do so by reading `~/.claude/hyperagent.json`, which `install.sh` creates. This file contains `{"hyperagent_dir": "<resolved path>"}`. Skills remain portable in source — no patching required.
+
 ### `skills/hyperagent-reload/SKILL.md`
 
 ```markdown
@@ -77,14 +79,14 @@ name: hyperagent-changelog
 description: Show recent hyperagent changes. Use when user asks about what the hyperagent has changed, or after receiving a hyperagent notification.
 disable-model-invocation: true
 ---
+First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use that path for all file references below.
+
 Read the hyperagent changelog file and display the 10 most recent entries. Each entry starts with a `## ` heading containing a timestamp.
 
-Changelog location: HYPERAGENT_DIR_PLACEHOLDER/changelog.md
+Changelog location: `<hyperagent_dir>/changelog.md`
 
 If the user provides arguments: $ARGUMENTS — use them to filter (e.g. "this week", "last 5", "show all", a specific date).
 ```
-
-`install.sh` replaces `HYPERAGENT_DIR_PLACEHOLDER` with the actual absolute path when symlinking.
 
 ### `skills/hyperagent-revert/SKILL.md`
 
@@ -96,7 +98,9 @@ disable-model-invocation: true
 ---
 # Revert a Hyperagent Change
 
-1. Read the hyperagent changelog at HYPERAGENT_DIR_PLACEHOLDER/changelog.md.
+First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use that path for all file references below.
+
+1. Read the hyperagent changelog at `<hyperagent_dir>/changelog.md`.
 2. Show the user the 5 most recent entries with their timestamps and TL;DR lines.
 3. Ask the user which entry to revert (or confirm if they said "the last one").
 4. Read the **Diff** block from that changelog entry. The `< ` lines are the previous content. The `> ` lines are the current content.
@@ -108,11 +112,9 @@ disable-model-invocation: true
 7. For files under a project directory:
    - Run `git log --author="Hyperagent" --oneline` in the project repo to find the corresponding commit.
    - Run `git revert <hash> --no-edit` in the project repo.
-8. Append a revert entry to HYPERAGENT_DIR_PLACEHOLDER/changelog.md documenting what was reverted and why.
+8. Append a revert entry to `<hyperagent_dir>/changelog.md` documenting what was reverted and why.
 9. Tell the user to `/hyperagent-reload` if a CLAUDE.md file was affected.
 ```
-
-`install.sh` replaces `HYPERAGENT_DIR_PLACEHOLDER` with the actual absolute path.
 
 ### `skills/hyperagent-status/SKILL.md`
 
@@ -124,6 +126,8 @@ disable-model-invocation: true
 ---
 # Hyperagent Status
 
+First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use that path for all file references below.
+
 Check the following and report to the user:
 
 1. **Watcher process**: Check if the watcher is running.
@@ -131,11 +135,11 @@ Check the following and report to the user:
    - Linux: `systemctl --user status hyperagent.service 2>/dev/null`
    - Fallback: `pgrep -f "watcher.sh" >/dev/null 2>&1`
 
-2. **Last heartbeat**: Read `HYPERAGENT_DIR_PLACEHOLDER/.heartbeat`. It contains an epoch timestamp updated every watcher loop iteration (every 60 seconds). Calculate how long ago the last heartbeat was. If the file is missing or the heartbeat is older than 5 minutes, the watcher is not running normally.
+2. **Last heartbeat**: Read `<hyperagent_dir>/.heartbeat`. It contains an epoch timestamp updated every watcher loop iteration (every 60 seconds). Calculate how long ago the last heartbeat was. If the file is missing or the heartbeat is older than 5 minutes, the watcher is not running normally.
 
-3. **Last change**: Read `HYPERAGENT_DIR_PLACEHOLDER/.last-change`. Show when the last change was made and what it was.
+3. **Last change**: Read `<hyperagent_dir>/.last-change`. Show when the last change was made and what it was.
 
-4. **Recent changelog**: Show the 3 most recent entries from `HYPERAGENT_DIR_PLACEHOLDER/changelog.md` (timestamps and TL;DR lines only).
+4. **Recent changelog**: Show the 3 most recent entries from `<hyperagent_dir>/changelog.md` (timestamps and TL;DR lines only).
 
 5. **Watcher log**: Show the last 20 lines of `/tmp/hyperagent.log` if it exists.
 
@@ -143,8 +147,6 @@ Format the output clearly. If the watcher is not running, tell the user how to r
 - macOS: `launchctl kickstart -k gui/$(id -u)/com.bioneural.hyperagent`
 - Linux: `systemctl --user restart hyperagent.service`
 ```
-
-`install.sh` replaces `HYPERAGENT_DIR_PLACEHOLDER` with the actual absolute path.
 
 ### `skills/hyperagent-issue/SKILL.md`
 
@@ -156,6 +158,8 @@ disable-model-invocation: true
 ---
 # File a Graft Issue
 
+First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use that path for all file references below.
+
 The user wants to report a problem with the hyperagent system. Collect context and file an issue on bioneural/graft.
 
 1. Ask the user to describe the problem if they haven't already. Use $ARGUMENTS if provided.
@@ -163,10 +167,10 @@ The user wants to report a problem with the hyperagent system. Collect context a
 2. Gather diagnostic context automatically:
    - OS: `uname -s -r`
    - Claude Code version: `claude --version 2>&1`
-   - Watcher status: check if `HYPERAGENT_DIR_PLACEHOLDER/.heartbeat` exists and its age
-   - Last 5 changelog entries (timestamps and TL;DR only) from `HYPERAGENT_DIR_PLACEHOLDER/changelog.md`
+   - Watcher status: check if `<hyperagent_dir>/.heartbeat` exists and its age
+   - Last 5 changelog entries (timestamps and TL;DR only) from `<hyperagent_dir>/changelog.md`
    - Last 20 lines of `/tmp/hyperagent.log` if it exists
-   - Whether the meta agent has been modified: `git -C HYPERAGENT_DIR_PLACEHOLDER diff HEAD -- meta_agent.md | head -20`
+   - Whether the meta agent has been modified: `git -C <hyperagent_dir> diff HEAD -- meta_agent.md | head -20`
 
 3. Show the user a preview of the issue title and body. Ask for confirmation before filing.
 
@@ -199,8 +203,6 @@ The user wants to report a problem with the hyperagent system. Collect context a
 <log tail or "no log found">
 ```
 ```
-
-`install.sh` replaces `HYPERAGENT_DIR_PLACEHOLDER` with the actual absolute path.
 
 ---
 
@@ -948,6 +950,11 @@ chmod +x "$HYPERAGENT_DIR/watcher.sh"
 chmod +x "$HYPERAGENT_DIR/hooks/on-session-start.sh"
 chmod +x "$HYPERAGENT_DIR/hooks/on-prompt.sh"
 
+# --- Write config file with resolved path ---
+
+echo "{\"hyperagent_dir\": \"$HYPERAGENT_DIR\"}" > "$CLAUDE_DIR/hyperagent.json"
+echo "Wrote config: $CLAUDE_DIR/hyperagent.json"
+
 # --- Symlink skills into ~/.claude/skills/ ---
 
 mkdir -p "$CLAUDE_DIR/skills"
@@ -955,12 +962,6 @@ mkdir -p "$CLAUDE_DIR/skills"
 for skill_dir in "$HYPERAGENT_DIR/skills"/*/; do
     skill_name=$(basename "$skill_dir")
     target="$CLAUDE_DIR/skills/$skill_name"
-
-    # Patch HYPERAGENT_DIR_PLACEHOLDER in SKILL.md
-    if grep -q "HYPERAGENT_DIR_PLACEHOLDER" "$skill_dir/SKILL.md" 2>/dev/null; then
-        sed "s|HYPERAGENT_DIR_PLACEHOLDER|$HYPERAGENT_DIR|g" "$skill_dir/SKILL.md" > "$skill_dir/SKILL.md.patched"
-        mv "$skill_dir/SKILL.md.patched" "$skill_dir/SKILL.md"
-    fi
 
     # Symlink the skill directory
     if [ -L "$target" ]; then
@@ -1139,6 +1140,9 @@ if [ -f "$SETTINGS_FILE" ]; then
     ' "$SETTINGS_FILE" > "$SETTINGS_FILE.tmp" && mv "$SETTINGS_FILE.tmp" "$SETTINGS_FILE"
     echo "Removed hooks"
 fi
+
+# Remove config file
+rm -f "$CLAUDE_DIR/hyperagent.json"
 
 # Clean runtime files
 rm -f "$HYPERAGENT_DIR/ledger"
