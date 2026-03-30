@@ -27,7 +27,8 @@ hyperagent/
 │   ├── hyperagent-changelog/SKILL.md # /hyperagent-changelog skill. §3.
 │   ├── hyperagent-revert/SKILL.md  # /hyperagent-revert skill. §3.
 │   ├── hyperagent-status/SKILL.md  # /hyperagent-status skill. §3.
-│   └── hyperagent-issue/SKILL.md  # /hyperagent-issue skill. §3.
+│   ├── hyperagent-issue/SKILL.md  # /hyperagent-issue skill. §3.
+│   └── hyperagent-upgrade/SKILL.md # /hyperagent-upgrade skill. §3.
 ├── install.sh                 # Sets up integration points. §10.
 ├── uninstall.sh               # Removes integration points. §11.
 ├── .gitignore                 # §2.
@@ -55,7 +56,9 @@ Everything else is tracked, including `tools/`, `meta_agent.md`, `memory.md`, `c
 
 Skills are the modern Claude Code extensibility system. They live in `.claude/skills/<n>/SKILL.md`, support YAML frontmatter, hot-reload mid-session (no restart required for new or modified skills), and can be auto-invoked or manually invoked via `/name`.
 
-The hyperagent ships five skills. `install.sh` symlinks them into `~/.claude/skills/` so they're available globally. All skill names are prefixed with `hyperagent-` to avoid collisions with other tools.
+Complex skills can use a folder structure to reduce context window pressure. The skill directory may contain supporting subdirectories — `references/`, `scripts/`, `examples/` — alongside `SKILL.md`. The skill's `SKILL.md` remains the single entry point; supporting files are read on demand as the agent needs them rather than loaded into context upfront.
+
+The hyperagent ships six skills. `install.sh` symlinks them into `~/.claude/skills/` so they're available globally. All skill names are prefixed with `hyperagent-` to avoid collisions with other tools.
 
 Skills that reference the hyperagent repo directory do so by reading `~/.claude/hyperagent.json`, which `install.sh` creates. This file contains `{"hyperagent_dir": "<resolved path>"}`. Skills remain portable in source — no patching required.
 
@@ -114,6 +117,10 @@ First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use th
    - Run `git revert <hash> --no-edit` in the project repo.
 8. Append a revert entry to `<hyperagent_dir>/changelog.md` documenting what was reverted and why.
 9. Tell the user to `/hyperagent-reload` if a CLAUDE.md file was affected.
+
+## Gotchas
+
+- The diff format uses `< ` and `> ` prefixes to denote previous and current content. These can be confused with markdown blockquotes when rendered or pasted into other contexts. Always parse the raw text, not a rendered view.
 ```
 
 ### `skills/hyperagent-status/SKILL.md`
@@ -202,6 +209,57 @@ The user wants to report a problem with the hyperagent system. Collect context a
 
 <log tail or "no log found">
 ```
+```
+
+### `skills/hyperagent-upgrade/SKILL.md`
+
+```markdown
+---
+name: hyperagent-upgrade
+description: Upgrade the hyperagent to the latest version from bioneural/graft. Use when the user says "upgrade hyperagent", "update hyperagent", or "pull latest hyperagent".
+disable-model-invocation: true
+---
+# Upgrade Hyperagent
+
+First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use that path for all file references below.
+
+1. Check the current branch and working tree status in the hyperagent repo:
+   ```bash
+   git -C <hyperagent_dir> status --short
+   git -C <hyperagent_dir> branch --show-current
+   ```
+   If there are uncommitted changes, warn the user and ask whether to proceed (changes will be stashed).
+
+2. Stash any uncommitted changes if the user confirmed:
+   ```bash
+   git -C <hyperagent_dir> stash push -m "pre-upgrade stash"
+   ```
+
+3. Pull the latest from the remote:
+   ```bash
+   git -C <hyperagent_dir> pull --rebase origin main
+   ```
+
+4. Pop the stash if one was created:
+   ```bash
+   git -C <hyperagent_dir> stash pop
+   ```
+
+5. Re-run install to pick up any new skills or hook changes:
+   ```bash
+   bash <hyperagent_dir>/install.sh
+   ```
+
+6. Tell the user to `/hyperagent-reload` to pick up any changes to CLAUDE.md or rules.
+
+7. If the user wants to contribute a self-modification back to bioneural/graft:
+   - Fork bioneural/graft if they haven't already.
+   - Create a branch with the diff of their local `meta_agent.md`, `memory.md`, or `tools/` changes.
+   - Open a PR via `gh pr create --repo bioneural/graft`.
+
+## Gotchas
+
+- The contribute-back flow requires the user to have fork permissions on bioneural/graft. If the user is not authenticated with `gh` or lacks permission to fork, the PR step will fail silently. Verify with `gh auth status` before attempting.
 ```
 
 ---
