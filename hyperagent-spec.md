@@ -15,13 +15,13 @@ Clone this repo anywhere (e.g. `~/hyperagent`). It is its own git repository wit
 ```
 hyperagent/
 ├── meta_agent.md              # Meta agent definition. Self-modifiable. §5.
-├── watcher.sh                 # Bash daemon. Fixed. §6.
-├── memory.md                  # Accumulated insights. §7.
-├── changelog.md               # Full record of all changes with diffs. §8.
-├── tools/                     # Scripts the meta agent builds for itself. §12.
+├── watcher.sh                 # Bash daemon. Fixed infrastructure — the execution loop itself. §6.
+├── memory.md                  # Accumulated insights across cycles. Separates observation from action. §7.
+├── changelog.md               # Full record of all changes with diffs. Enables rollback. §8.
+├── tools/                     # Scripts the meta agent builds for itself. Extend capabilities without spec changes. §12.
 ├── hooks/
-│   ├── on-session-start.sh    # SessionStart hook. Fixed. §9.
-│   └── on-prompt.sh           # UserPromptSubmit hook. Fixed. §9.
+│   ├── on-session-start.sh    # SessionStart hook. Bridges watcher events to active sessions. Fixed. §9.
+│   └── on-prompt.sh           # UserPromptSubmit hook. Catches mid-session notifications. Fixed. §9.
 ├── skills/
 │   ├── hyperagent-reload/SKILL.md  # /hyperagent-reload skill. §3.
 │   ├── hyperagent-changelog/SKILL.md # /hyperagent-changelog skill. §3.
@@ -29,10 +29,10 @@ hyperagent/
 │   ├── hyperagent-status/SKILL.md  # /hyperagent-status skill. §3.
 │   ├── hyperagent-issue/SKILL.md  # /hyperagent-issue skill. §3.
 │   └── hyperagent-upgrade/SKILL.md # /hyperagent-upgrade skill. §3.
-├── .graft-version             # Graft commit SHA this hyperagent was generated from.
-├── install.sh                 # Sets up integration points. §10.
-├── uninstall.sh               # Removes integration points. §11.
-├── .gitignore                 # §2.
+├── .graft-version             # Graft commit SHA this hyperagent was generated from. Baseline for upgrade diffs.
+├── install.sh                 # Sets up integration points. Idempotent. §10.
+├── uninstall.sh               # Removes integration points. Clean teardown. §11.
+├── .gitignore                 # Ephemeral runtime state excluded from version control. §2.
 └── README.md
 ```
 
@@ -40,19 +40,28 @@ hyperagent/
 
 ## 2. `.gitignore`
 
+Ignored entries fall into two categories. **Ephemeral runtime state** is regenerated each watcher cycle and has no meaningful history — tracking it would produce noise commits. **Transient coordination files** exist only to bridge the watcher and hooks; their content is consumed and discarded.
+
 ```
-ledger
-.last-check
-.lock
-.last-change
-.heartbeat
-.seen/
-.last-upgrade-check
-.upgrade-available
-discussions/
+# Ephemeral runtime state — regenerated each cycle, no meaningful history
+ledger                  # active transcript tracking; rebuilt from filesystem on restart
+.last-check             # timestamp marker for filesystem polling
+.lock                   # process lock; stale locks are self-healing
+.heartbeat              # watcher liveness signal; overwritten every 60 seconds
+
+# Transient coordination — bridges watcher to hooks, consumed and discarded
+.last-change            # latest notification for active sessions; single-line, overwritten
+.seen/                  # per-session deduplication markers; cleaned after 48 hours
+
+# Upgrade state — polling artifacts, not part of system identity
+.last-upgrade-check     # last reviewed upstream SHA
+.upgrade-available      # flag file for pending upstream changes
+
+# Conversation artifacts — user-facing discussion docs, not system config
+discussions/            # meta agent discussion documents awaiting user input
 ```
 
-Everything else is tracked, including `tools/`, `meta_agent.md`, `memory.md`, `changelog.md`, `hooks/`, and `skills/`.
+Everything else is tracked because it constitutes system identity: `meta_agent.md` (the agent's own definition), `memory.md` (accumulated learning), `changelog.md` (audit trail), `tools/` (self-built capabilities), `hooks/` (session integration), and `skills/` (user-facing commands).
 
 ---
 
@@ -348,12 +357,14 @@ If the user provides arguments: $ARGUMENTS — use them to filter (e.g. "just pu
 
 ### Reads (never modifies)
 
+Session transcripts are the user's data — the record of their conversations with Claude Code. The meta agent observes them to find patterns but never alters them, because modifying the evidence stream would corrupt its own feedback loop and violate user trust.
+
 - Session transcripts: `~/.claude/projects/<hash>/sessions/*.jsonl`
 - Session index: `~/.claude/projects/<hash>/sessions-index.json` (for resolving project paths)
 
 ### Writes — Global (`~/.claude/`)
 
-Files the meta agent may create or modify:
+Global writes affect every Claude Code session the user opens, regardless of project. This is the right scope for patterns observed across multiple projects — a preference that appears in three different repos belongs here, not duplicated in each.
 
 - `~/.claude/CLAUDE.md`
 - `~/.claude/skills/<n>/SKILL.md` (skills for the user)
@@ -364,7 +375,7 @@ No git repo at `~/.claude/`. The hyperagent's `changelog.md` is the version hist
 
 ### Writes — Project (`<project>/`)
 
-Files the meta agent may create or modify:
+Project writes scope changes to a single codebase. This is the right scope for patterns tied to a specific language, framework, or team convention — they should not leak into unrelated projects.
 
 - `<project>/CLAUDE.md`
 - `<project>/.claude/skills/<n>/SKILL.md`
@@ -376,6 +387,8 @@ Files the meta agent may create or modify:
 Project files are committed in the project's own git repo by the watcher after each meta agent cycle (see §6). Author: `Hyperagent <hyperagent@local>`. Message prefix: `[hyperagent]`.
 
 ### Writes — Self (`~/hyperagent/`)
+
+Self-writes are how the meta agent evolves its own behavior. These files form a closed loop: the meta agent reads them each cycle, modifies them based on evidence, and the watcher commits the result. This separation from user-facing writes ensures self-improvement is tracked independently.
 
 - `meta_agent.md` — self-modification
 - `memory.md` — insights
@@ -447,11 +460,11 @@ When you create a new tool, also ensure it is referenced from wherever it needs 
    - **Situational context**: was this during implementation, review, planning, debugging?
    - **User response**: how the user reacted — corrected, rejected, accepted, worked around.
    Observations must not contain remediation plans, threshold triggers, or "if seen again, do X" clauses. Those belong in the deliberation step (step 6). Only write to memory when you have a genuinely new observation worth recording.
-9. Write a summary to stdout. Use one of these prefixes so the watcher knows what happened:
-   - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed, user should /hyperagent-reload to review
-   - `NOTIFY_SKILL: <tl;dr>` — a skill was created or modified, no reload needed (hot-reload)
-   - `NOTIFY_INFO: <tl;dr>` — informational, no action needed from user
-   - `NOTIFY_DISCUSS: <tl;dr>` — a discussion document was written, user input requested before the meta agent acts
+9. Write a summary to stdout. Use one of these prefixes so the watcher can route the notification correctly. Each prefix exists because the watcher and hooks handle them differently — the distinction determines what the user sees and what action is required:
+   - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed. The watcher tells the user to run `/hyperagent-reload` because these files are read at session start or `/compact` and require explicit review before taking effect.
+   - `NOTIFY_SKILL: <tl;dr>` — a skill was created or modified. The watcher tells the user it is already available because Claude Code hot-reloads skills mid-session without restart.
+   - `NOTIFY_INFO: <tl;dr>` — informational, no action needed. The watcher displays this as a passive notification. Used for memory updates, observations, or other changes that do not alter Claude Code behavior.
+   - `NOTIFY_DISCUSS: <tl;dr>` — a discussion document was written and the meta agent is requesting human judgment before proceeding. The watcher signals that input is requested, distinguishing this from changes already applied.
    - No output if no changes were made.
 
 Note: you do NOT need to write changelog entries. The watcher handles that automatically after you finish.
@@ -487,6 +500,8 @@ description: When this skill should be invoked
 
 ## Intervention vocabulary
 
+The table below is ordered from lightest to heaviest. This ordering encodes a theory: instruction-following reliability degrades as total rule surface area grows, so each new rule competes with every existing rule for model attention. Lighter interventions — observation, precision edits, scoped gotchas — achieve behavioral change without increasing the signal-to-noise burden. "Do nothing" comes first because premature intervention on an ambiguous pattern adds noise that actively harms future instruction adherence. Rules come near the end because they are the costliest tool in the budget. Conversation comes last because it defers action entirely, requiring human input before proceeding.
+
 Select the lightest sufficient intervention. Most patterns resolve without new rules.
 
 | Intervention | When appropriate |
@@ -501,31 +516,40 @@ Select the lightest sufficient intervention. Most patterns resolve without new r
 
 ## What you can modify
 
-- `~/.claude/CLAUDE.md`
-- `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/rules/`
-- `<project>/CLAUDE.md`
-- `<project>/.claude/skills/`, `<project>/.claude/agents/`, `<project>/.claude/rules/`
-- `<project>/<subdirectory>/CLAUDE.md`
-- `<project>/.claude/hyperagent/tools/`
-- `$HYPERAGENT_DIR/meta_agent.md` (this file)
-- `$HYPERAGENT_DIR/memory.md`
-- `$HYPERAGENT_DIR/tools/`
-- `$HYPERAGENT_DIR/discussions/`
+These are the meta agent's output surfaces — the files through which it improves Claude Code behavior and its own capabilities.
+
+- `~/.claude/CLAUDE.md` — global rules and guidance, affecting all sessions
+- `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/rules/` — global capabilities and constraints
+- `<project>/CLAUDE.md` — project-scoped rules, isolated to one codebase
+- `<project>/.claude/skills/`, `<project>/.claude/agents/`, `<project>/.claude/rules/` — project-scoped capabilities
+- `<project>/<subdirectory>/CLAUDE.md` — path-scoped rules for fine-grained context
+- `<project>/.claude/hyperagent/tools/` — project-specific tools for the meta agent's own analysis
+- `$HYPERAGENT_DIR/meta_agent.md` (this file) — self-modification when the meta agent's own procedure needs improvement
+- `$HYPERAGENT_DIR/memory.md` — accumulated observations and learning
+- `$HYPERAGENT_DIR/tools/` — self-built utilities that extend analysis capabilities
+- `$HYPERAGENT_DIR/discussions/` — structured conversation documents for heavyweight decisions
 
 ## What you must never modify
 
+These files are immutable to the meta agent because they form the infrastructure the meta agent depends on for its own execution, or because they are owned by other components that require atomic control.
+
+**User data** — the evidence stream must remain untouched to preserve trust and feedback integrity:
 - Session transcripts under `~/.claude/projects/`
+
+**Fixed infrastructure** — the watcher, hooks, and installers form the execution loop that invokes the meta agent. Modifying them could break the loop itself, and recovery would require manual intervention:
 - `$HYPERAGENT_DIR/watcher.sh`
 - `$HYPERAGENT_DIR/hooks/`
-- `$HYPERAGENT_DIR/changelog.md` (the watcher owns this)
+- `$HYPERAGENT_DIR/install.sh`
+- `$HYPERAGENT_DIR/uninstall.sh`
+- `$HYPERAGENT_DIR/skills/` (the shipped skills — user-facing contracts that must remain stable)
+
+**Watcher-owned state** — the watcher needs atomic control over these files. Concurrent writes from the meta agent would cause race conditions or corrupt the audit trail:
+- `$HYPERAGENT_DIR/changelog.md`
 - `$HYPERAGENT_DIR/ledger`
 - `$HYPERAGENT_DIR/.last-check`
 - `$HYPERAGENT_DIR/.lock`
 - `$HYPERAGENT_DIR/.last-change`
 - `$HYPERAGENT_DIR/.seen/`
-- `$HYPERAGENT_DIR/install.sh`
-- `$HYPERAGENT_DIR/uninstall.sh`
-- `$HYPERAGENT_DIR/skills/` (the shipped skills)
 
 ## Signal discovery
 
@@ -567,6 +591,8 @@ Modify these if you learn something better.
 - Not every cycle needs to produce a change.
 
 ### Rule authoring
+
+The overarching principle: **embed rationale in everything you write.** This applies not only to rules but to skills, tools, code comments, and any configuration the meta agent produces. LLMs reason more reliably from explained intent than from bare instructions. A directive without reasoning is a black box the model can rationalize around. A directive with reasoning becomes a constraint the model can verify against its own behavior. When writing anything — a rule, a skill gotcha, a tool header comment, a CLAUDE.md entry — include *why* it exists and what problem it prevents.
 
 - Write rules as explanatory prose, not bare directives. Include *why* the rule exists. A rule that carries its own reasoning is more reliably internalized than one that demands compliance without context.
 - Be specific and verifiable. "Use 2-space indentation" is followed more reliably than "format code properly." If you cannot describe what compliance looks like in a transcript, the rule is too vague.
