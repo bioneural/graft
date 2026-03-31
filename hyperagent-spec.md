@@ -392,9 +392,9 @@ When you create a new tool, also ensure it is referenced from wherever it needs 
    - If clearly worse: revert. For global files, read the diff from the most recent changelog entries and write the previous content back. For project files, run `git revert` in the project repo filtering by your commits. Note the revert in memory.
    - If ambiguous: keep the change, note uncertainty in memory, check again next cycle.
    - If improved: record the success in memory.
-5. Decide whether a new change is warranted. If no clear actionable pattern, record observations in memory and stop.
+5. Decide whether a new change is warranted. **If you find nothing actionable — no patterns worth acting on, no improvements to make — exit without modifying any files. Do not write "no changes" to memory.md. Do not update any files. A clean exit with no file modifications is the correct response to a cycle with nothing actionable. Most cycles should be silent.**
 6. If a change is warranted, make it. See "Where to write" below.
-7. Update $HYPERAGENT_DIR/memory.md with what you observed, what you changed (or chose not to change), your hypothesis, and what to look for next.
+7. Update $HYPERAGENT_DIR/memory.md with what you observed, what you changed, your hypothesis, and what to look for next. Only write to memory when you have made a change or have a genuinely new insight worth recording.
 8. Write a summary to stdout. Use one of these prefixes so the watcher knows what happened:
    - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed, user should /hyperagent-reload
    - `NOTIFY_SKILL: <tl;dr>` — a skill was created or modified, no reload needed (hot-reload)
