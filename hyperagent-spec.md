@@ -49,6 +49,7 @@ ledger
 .seen/
 .last-upgrade-check
 .upgrade-available
+discussions/
 ```
 
 Everything else is tracked, including `tools/`, `meta_agent.md`, `memory.md`, `changelog.md`, `hooks/`, and `skills/`.
@@ -421,6 +422,7 @@ When you create a new tool, also ensure it is referenced from wherever it needs 
    - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed, user should /hyperagent-reload to review
    - `NOTIFY_SKILL: <tl;dr>` — a skill was created or modified, no reload needed (hot-reload)
    - `NOTIFY_INFO: <tl;dr>` — informational, no action needed from user
+   - `NOTIFY_DISCUSS: <tl;dr>` — a discussion document was written, user input requested before the meta agent acts
    - No output if no changes were made.
 
 Note: you do NOT need to write changelog entries. The watcher handles that automatically after you finish.
@@ -465,6 +467,7 @@ description: When this skill should be invoked
 - `$HYPERAGENT_DIR/meta_agent.md` (this file)
 - `$HYPERAGENT_DIR/memory.md`
 - `$HYPERAGENT_DIR/tools/`
+- `$HYPERAGENT_DIR/discussions/`
 
 ## What you must never modify
 
@@ -529,6 +532,25 @@ Modify these if you learn something better.
 - Manage total rule surface area. Each additional rule competes with existing rules for attention. When deploying a new rule, check whether existing rules can be consolidated or retired. A smaller set of clear rules outperforms a large set of overlapping ones.
 - Before deploying a rule, check for conflicts with the Claude Code system prompt. Rules that contradict the system prompt will lose unless they include explicit override reasoning. Known system prompt behaviors include: do not commit unless asked, do not push unless asked, confirm before destructive operations, prefer dedicated tools over bash equivalents.
 - When a rule must override a system prompt default, state this explicitly in the rule and explain why the override is appropriate for this user or project.
+
+### Conversation protocol
+
+Not every intervention should be auto-applied. The meta agent distinguishes between lightweight and heavyweight changes and chooses the appropriate mode.
+
+**When to discuss vs. auto-apply.** Lightweight interventions — adjusting rule wording, adding a gotcha, refining a skill description — can be applied directly. Heavyweight interventions — introducing new behavioral rules, self-modification, changes that alter how the user or Claude Code operates in a fundamental way — default to discussion. If an intervention vocabulary exists (see tools or memory), use its weight classification to make this determination.
+
+**Discussion documents.** When discussion is warranted, the meta agent writes a document to `$HYPERAGENT_DIR/discussions/<topic>.md`. The document contains:
+
+- Synthesized evidence across occurrences. Not "seen 3x" — what is common across instances, what differs, what the trajectory looks like.
+- A point of view on root cause. The meta agent states what it believes is happening and why.
+- Tradeoff analysis. Why might the current behavior sometimes be correct? What would be lost by changing it?
+- One or more proposed interventions with reasoning. Each proposal includes what it would change, what it expects to improve, and what it might break.
+
+The meta agent outputs `NOTIFY_DISCUSS: <one-line summary>` so the watcher can signal the user.
+
+**Feedback loop.** On subsequent cycles, the meta agent checks recent transcripts for responses that reference its discussion topics. It reads the human's perspective and incorporates it into its remediation decision. The discussion document is updated with the outcome — what was decided, what was acted on, and why.
+
+**Staleness.** If the user does not respond within a reasonable window, the meta agent does not escalate or nag. Silence is data. The meta agent records the open discussion in memory and moves on. The topic remains available if the user engages later, but no further notifications are sent about it.
 ```
 
 ---
@@ -782,7 +804,7 @@ run_meta_agent() {
     result_text=$(echo "$output" | jq -r '.result // empty' 2>/dev/null || echo "")
 
     local notify_line
-    notify_line=$(echo "$result_text" | grep -E "^NOTIFY_(RELOAD|SKILL|INFO):" | head -1 || echo "")
+    notify_line=$(echo "$result_text" | grep -E "^NOTIFY_(RELOAD|SKILL|INFO|DISCUSS):" | head -1 || echo "")
 
     local tl_dr
     tl_dr=$(echo "$notify_line" | sed 's/^NOTIFY_[A-Z]*: //')
@@ -794,6 +816,8 @@ run_meta_agent() {
         notify_type="skill"
     elif echo "$notify_line" | grep -q "^NOTIFY_INFO:"; then
         notify_type="info"
+    elif echo "$notify_line" | grep -q "^NOTIFY_DISCUSS:"; then
+        notify_type="discuss"
     fi
 
     # --- Phase 2: Check if anything changed ---
@@ -1049,7 +1073,7 @@ Two hooks notify the user of hyperagent changes. They use Claude Code's hook sys
 
 The notification mechanism:
 
-1. After committing changes, the watcher writes `~/hyperagent/.last-change` containing: epoch timestamp, notification type (`reload`/`skill`/`info`/`error`), and TL;DR, tab-separated on one line.
+1. After committing changes, the watcher writes `~/hyperagent/.last-change` containing: epoch timestamp, notification type (`reload`/`skill`/`info`/`discuss`/`error`), and TL;DR, tab-separated on one line.
 2. Each hook receives `session_id` in its JSON input. It compares the `.last-change` timestamp against a per-session file at `~/hyperagent/.seen/<session_id>`. If the change is newer than what the session last saw (or the session has no `.seen` file), the hook injects a notification and updates the `.seen` file.
 3. The watcher periodically cleans `.seen/` files older than 48 hours.
 
@@ -1126,6 +1150,8 @@ if [ "$CHANGE_EPOCH" -gt "$SEEN_EPOCH" ] 2>/dev/null; then
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Already available (no reload needed). /hyperagent-changelog for details.\"}"
     elif [ "$CHANGE_TYPE" = "error" ]; then
         echo "{\"additionalContext\": \"[Hyperagent] WARNING: $CHANGE_TLDR\"}"
+    elif [ "$CHANGE_TYPE" = "discuss" ]; then
+        echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Analysis written — your input is requested. See /hyperagent-status for details.\"}"
     else
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. /hyperagent-changelog for details.\"}"
     fi
@@ -1203,6 +1229,8 @@ if [ "$CHANGE_EPOCH" -gt "$SEEN_EPOCH" ] 2>/dev/null; then
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Already available (no reload needed). /hyperagent-changelog for details.\"}"
     elif [ "$CHANGE_TYPE" = "error" ]; then
         echo "{\"additionalContext\": \"[Hyperagent] WARNING: $CHANGE_TLDR\"}"
+    elif [ "$CHANGE_TYPE" = "discuss" ]; then
+        echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Analysis written — your input is requested. See /hyperagent-status for details.\"}"
     else
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. /hyperagent-changelog for details.\"}"
     fi
