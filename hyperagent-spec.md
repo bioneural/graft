@@ -274,9 +274,23 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
    - Apply the change to the local hyperagent file.
    - Log the incorporation in `<hyperagent_dir>/changelog.md`.
 
+7. **Data migration check.** For each incorporated change, determine whether it modifies a format specification — look for changes to template blocks, structured field requirements, or references to data file layout (e.g., "Format in memory.md", entry schemas, field ordering). If it does:
+   - Identify the corresponding data file (e.g., `memory.md`, `changelog.md`, session logs).
+   - Read the existing data file and compare its structure against the new format specification.
+   - If the formats diverge, show the user a concrete comparison:
+     ```
+     The new spec expects entries like:
+       <example of new format from the updated spec>
+     Your existing file contains entries like:
+       <example of current format from the data file>
+     Reformat <filename>?
+     ```
+   - If the user approves, perform the migration: rewrite the data file to conform to the new format, preserving all existing content. Log the migration in `<hyperagent_dir>/changelog.md` with a before/after diff.
+   - If the user declines, note the skipped migration in the changelog so future runs can resurface it.
+
 ## Part 2: Contribute Back to Graft
 
-7. Review local changes that diverge from the blueprint. The generation baseline is in `<hyperagent_dir>/.graft-version` — this is the graft commit the hyperagent was originally built from. Compare key files against the upstream spec at that baseline and at HEAD to distinguish local customizations from upstream drift:
+8. Review local changes that diverge from the blueprint. The generation baseline is in `<hyperagent_dir>/.graft-version` — this is the graft commit the hyperagent was originally built from. Compare key files against the upstream spec at that baseline and at HEAD to distinguish local customizations from upstream drift:
    - `meta_agent.md` — has the meta agent evolved strategies worth sharing?
    - `skills/` — any new skills or significant skill improvements?
    - `tools/` — any tools that solve common problems?
@@ -287,13 +301,13 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
    gh api repos/bioneural/graft/contents/hyperagent-spec.md --jq '.content' | base64 -d > /tmp/graft-spec.md
    ```
 
-8. For each meaningful local divergence, assess whether it's:
+9. For each meaningful local divergence, assess whether it's:
    - **A bug fix** → worth contributing as an issue or PR
    - **A new capability** (skill, tool, strategy) → worth contributing as an issue describing the idea
    - **A local customization** → specific to this user, skip
    - **A meta agent self-modification** → potentially interesting if it represents a general improvement
 
-9. Present candidates to the user. For each one the user approves:
+10. Present candidates to the user. For each one the user approves:
    - **File as an issue**: Use `/hyperagent-issue` to file on `bioneural/graft` with the local change as context.
    - **Open a PR**: Fork graft (if not already forked), create a branch, apply the change to the spec, and open a PR:
      ```bash
@@ -304,17 +318,17 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
 
 ## Wrap Up
 
-10. Save the latest reviewed commit SHA:
+11. Save the latest reviewed commit SHA:
     ```bash
     echo "<latest_sha>" > <hyperagent_dir>/.last-upgrade-check
     ```
 
-11. Delete the upgrade notification file:
+12. Delete the upgrade notification file:
     ```bash
     rm -f <hyperagent_dir>/.upgrade-available
     ```
 
-12. Tell the user to `/hyperagent-reload` to review what changed.
+13. Tell the user to `/hyperagent-reload` to review what changed.
 
 If the user provides arguments: $ARGUMENTS — use them to filter (e.g. "just pull", "just contribute", "last 3 commits", "show everything").
 ```
