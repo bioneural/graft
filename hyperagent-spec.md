@@ -269,7 +269,16 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
    - Is it a watcher or hook change? → Show the diff and explain what it would change.
    - Is it a meta agent change? → The meta agent self-modifies, so flag for the user's judgment.
 
-6. Ask the user which changes (if any) to incorporate. For approved changes:
+6. **Cross-file consistency check.** For each new concept introduced by upstream changes (new notification type, new directory, new procedure step, new config key, new skill), scan the local hyperagent for files that reference the same category but do not yet handle the new member:
+   ```bash
+   # Example: upstream adds NOTIFY_DISCUSS. Find local files that reference NOTIFY_ types.
+   grep -rl 'NOTIFY_' <hyperagent_dir> --include='*.md' --include='*.sh'
+   ```
+   - For each match, check whether the file already accounts for the new concept.
+   - If it does not, flag it as **"may need updates"** and explain what is missing.
+   - Present these flags alongside the upstream diff so the user sees both the direct changes and the indirect consequences before deciding what to incorporate.
+
+7. Ask the user which changes (if any) to incorporate. For approved changes:
    - Read the relevant section from the upstream spec: `gh api repos/bioneural/graft/contents/hyperagent-spec.md --jq '.content' | base64 -d`
    - Apply the change to the local hyperagent file.
    - Log the incorporation in `<hyperagent_dir>/changelog.md`.
