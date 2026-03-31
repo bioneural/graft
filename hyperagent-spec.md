@@ -407,8 +407,15 @@ When you create a new tool, also ensure it is referenced from wherever it needs 
    - If clearly worse: revert. For global files, read the diff from the most recent changelog entries and write the previous content back. For project files, run `git revert` in the project repo filtering by your commits. Note the revert in memory.
    - If ambiguous: keep the change, note uncertainty in memory, check again next cycle.
    - If improved: record the success in memory.
+   For rules specifically, go deeper: check whether the rule itself was followed, not just whether the targeted pattern changed. A pattern can improve for unrelated reasons while the rule is ignored. Search post-change transcripts for situations where the rule applied. Classify what happened:
+   - **Followed**: the rule visibly influenced Claude's behavior. Record the success.
+   - **Not attended to**: the situation arose but Claude showed no awareness of the rule. The rule may be buried in a long file (lost-in-the-middle effect) or drowned out by total rule volume. Consider repositioning it earlier in CLAUDE.md, extracting it to a path-scoped rule with higher signal-to-noise, or consolidating other rules to reduce competition.
+   - **Precedence conflict**: Claude's behavior followed the system prompt or training prior instead of the rule. Look for the conflict. If the system prompt contradicts the rule, rewrite with an explicit override clause and reasoning, or accept that this rule cannot be enforced at the prompting layer.
+   - **Rationalized away**: Claude acknowledged or reasoned about the rule but constructed a justification for not following it. The rule may be too vague, leaving room for interpretation. Rewrite with specific, observable criteria that leave no room for exception-finding.
+   - **Vacuous compliance**: the rule was technically followed because its precondition never triggered, due to an upstream rule or system prompt behavior blocking it. Rewrite as a full causal chain — encode the entire sequence of actions, not just the downstream effect.
+   If a rule has been violated across two or more sessions, do not simply re-add or strengthen the wording. Diagnose first, then select the appropriate response from above.
 5. Decide whether a new change is warranted. **If you find nothing actionable — no patterns worth acting on, no improvements to make — exit without modifying any files. Do not write "no changes" to memory.md. Do not update any files. A clean exit with no file modifications is the correct response to a cycle with nothing actionable. Most cycles should be silent.**
-6. If a change is warranted, make it. See "Where to write" below.
+6. If a change is warranted, make it. See "Where to write" below. When deploying a rule, also record in memory what you expect to observe in future transcripts — what specific behavior should appear or disappear. This is your verification criterion. Without it, step 4 cannot distinguish a followed rule from a coincidental improvement.
 7. Update $HYPERAGENT_DIR/memory.md with what you observed, what you changed, your hypothesis, and what to look for next. Only write to memory when you have made a change or have a genuinely new insight worth recording.
 8. Write a summary to stdout. Use one of these prefixes so the watcher knows what happened:
    - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed, user should /hyperagent-reload to review
@@ -512,6 +519,16 @@ Modify these if you learn something better.
 - Prefer small, targeted modifications over wholesale rewrites.
 - Act on patterns seen 3+ times across sessions. Record patterns seen fewer times as hypotheses.
 - Not every cycle needs to produce a change.
+
+### Rule authoring
+
+- Write rules as explanatory prose, not bare directives. Include *why* the rule exists. A rule that carries its own reasoning is more reliably internalized than one that demands compliance without context.
+- Be specific and verifiable. "Use 2-space indentation" is followed more reliably than "format code properly." If you cannot describe what compliance looks like in a transcript, the rule is too vague.
+- Prefer positive instructions ("do X") over prohibitions ("don't do Y"). Negative rules require the model to infer desired behavior from excluded behavior.
+- Position matters. Rules at the beginning or end of a CLAUDE.md file receive more model attention than rules buried in the middle. Place high-priority rules accordingly.
+- Manage total rule surface area. Each additional rule competes with existing rules for attention. When deploying a new rule, check whether existing rules can be consolidated or retired. A smaller set of clear rules outperforms a large set of overlapping ones.
+- Before deploying a rule, check for conflicts with the Claude Code system prompt. Rules that contradict the system prompt will lose unless they include explicit override reasoning. Known system prompt behaviors include: do not commit unless asked, do not push unless asked, confirm before destructive operations, prefer dedicated tools over bash equivalents.
+- When a rule must override a system prompt default, state this explicitly in the rule and explain why the override is appropriate for this user or project.
 ```
 
 ---
@@ -990,6 +1007,18 @@ Lessons from Anthropic's internal skill management (source: "Lessons from Buildi
 - **Measure skill usage.** Track invocations to find skills that are popular or undertriggering. The transcript already captures this signal — mine it.
 - **Persistent skill memory.** Skills may need cross-session state (logs, JSON, SQLite). Consider when building skills that learn from repeated use.
 - **Curation before distribution.** Experimental skills should prove their value before becoming permanent. Remove or consolidate skills that underperform.
+
+## Rule Effectiveness
+
+Lessons from instruction-following research. Apply these when creating or evaluating rules:
+
+- **The instruction budget is finite and smaller than it appears.** Each rule competes with every other rule and with the system prompt for model attention. Degradation begins at single-digit constraint counts and worsens with each addition. Treat total rule surface area as a resource to be managed, not a list to be appended to.
+- **Position determines attention.** Rules in the middle of a long file receive less model attention than rules at the beginning or end (Liu et al., "Lost in the Middle," TACL 2024). When a rule is not being followed, repositioning it may be more effective than rewriting it.
+- **Explanatory prose outperforms directives.** Anthropic's own alignment work moved from standalone principles to explanatory prose because models internalize rules more reliably when they understand the reasoning. Write "Do X because Y" rather than "Do X."
+- **The system prompt holds structural precedence.** When a user rule conflicts with a system prompt instruction, the system prompt wins — not by merit but by position and framing. Rules that must override a system prompt default need explicit override clauses with reasoning, or they will be silently ignored.
+- **Verify rule adherence, not just pattern improvement.** A pattern can improve for unrelated reasons while the rule is ignored. After deploying a rule, record what should change in future transcripts and check specifically for compliance on subsequent cycles.
+- **Diagnose before rewriting.** A violated rule may be poorly positioned, in conflict with the system prompt, too vague, phrased as a downstream effect with a blocked precondition, or drowned out by rule volume. Each failure mode has a different fix. Adding emphasis or repeating the rule does not address any of them.
+- **Consolidate and retire.** When adding a rule, check whether existing rules overlap, conflict, or have served their purpose. A rule that prevents a pattern no longer occurring in transcripts is consuming budget for no benefit.
 
 ## Gotchas
 
