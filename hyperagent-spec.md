@@ -157,7 +157,6 @@ Format the output clearly. If the watcher is not running, tell the user how to r
 ---
 name: hyperagent-issue
 description: File an issue on the Graft repo with system context. Use when the user reports a problem with the hyperagent, or says "file an issue", "report a bug", or similar.
-disable-model-invocation: true
 ---
 # File a Graft Issue
 
