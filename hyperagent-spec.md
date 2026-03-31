@@ -416,9 +416,15 @@ When you create a new tool, also ensure it is referenced from wherever it needs 
    - **Vacuous compliance**: the rule was technically followed because its precondition never triggered, due to an upstream rule or system prompt behavior blocking it. Rewrite as a full causal chain — encode the entire sequence of actions, not just the downstream effect.
    If a rule has been violated across two or more sessions, do not simply re-add or strengthen the wording. Diagnose first, then select the appropriate response from above.
 5. Decide whether a new change is warranted. **If you find nothing actionable — no patterns worth acting on, no improvements to make — exit without modifying any files. Do not write "no changes" to memory.md. Do not update any files. A clean exit with no file modifications is the correct response to a cycle with nothing actionable. Most cycles should be silent.**
-6. If a change is warranted, make it. See "Where to write" below. When deploying a rule, also record in memory what you expect to observe in future transcripts — what specific behavior should appear or disappear. This is your verification criterion. Without it, step 4 cannot distinguish a followed rule from a coincidental improvement.
-7. Update $HYPERAGENT_DIR/memory.md with what you observed, what you changed, your hypothesis, and what to look for next. Only write to memory when you have made a change or have a genuinely new insight worth recording.
-8. Write a summary to stdout. Use one of these prefixes so the watcher knows what happened:
+6. **Deliberate before intervening.** When observations for a pattern reach sufficient evidence weight (minimum 3 occurrences across sessions), synthesize across them before selecting an intervention. Examine: what is common across occurrences, what differs, what situational context suggests about root cause. The synthesis may reveal that occurrences share a surface behavior but have different causes, or that context (e.g., planning vs. implementation) is the determining factor. Only after deliberation, decide on a specific intervention. Reaching the threshold triggers synthesis, not automatic execution of a predetermined fix.
+7. If a change is warranted, make it. See "Where to write" below. When deploying a rule, also record in memory what you expect to observe in future transcripts — what specific behavior should appear or disappear. This is your verification criterion. Without it, step 4 cannot distinguish a followed rule from a coincidental improvement.
+8. Update $HYPERAGENT_DIR/memory.md with observations. An observation records what happened, not what to do about it. Each observation entry must contain:
+   - **What happened**: the specific behavior observed.
+   - **Session context**: which session, approximate point in the conversation.
+   - **Situational context**: was this during implementation, review, planning, debugging?
+   - **User response**: how the user reacted — corrected, rejected, accepted, worked around.
+   Observations must not contain remediation plans, threshold triggers, or "if seen again, do X" clauses. Those belong in the deliberation step (step 6). Only write to memory when you have a genuinely new observation worth recording.
+9. Write a summary to stdout. Use one of these prefixes so the watcher knows what happened:
    - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed, user should /hyperagent-reload to review
    - `NOTIFY_SKILL: <tl;dr>` — a skill was created or modified, no reload needed (hot-reload)
    - `NOTIFY_INFO: <tl;dr>` — informational, no action needed from user
@@ -520,7 +526,7 @@ Modify these if you learn something better.
 
 - Prefer one focused change per cycle for clean attribution and rollback.
 - Prefer small, targeted modifications over wholesale rewrites.
-- Act on patterns seen 3+ times across sessions. Record patterns seen fewer times as hypotheses.
+- When a pattern reaches 3+ observations across sessions, synthesize across occurrences before intervening. Record patterns seen fewer times as observations only — no remediation plans.
 - Not every cycle needs to produce a change.
 
 ### Rule authoring
@@ -1049,6 +1055,12 @@ Lessons from instruction-following research. Apply these when creating or evalua
 - **Do not maintain a cycle counter or per-cycle bookkeeping.** In early runs the meta agent invented a cycle counter in this file, bumping it every cycle even with no findings. Because the watcher commits whenever `git status --porcelain` is non-empty, this produced 63 consecutive no-op commits and 1,142 lines of changelog noise. Step 5 of the procedure means it: if nothing is actionable, do not touch any file — including this one. A silent exit is correct.
 
 ## Observations
+
+Each observation records what happened — not what to do about it. Remediation plans do not belong here. When observations for a pattern reach sufficient weight, the deliberation step (procedure step 6) synthesizes across them before selecting an intervention.
+
+Format:
+- **Pattern name** — short label for grouping related observations.
+  - _Observation N_ (session hash, context): What happened. Situational context (implementation / review / planning / debugging). What the user did in response.
 
 _No observations yet._
 ```
