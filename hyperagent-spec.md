@@ -533,6 +533,7 @@ SEEN_DIR="$HYPERAGENT_DIR/.seen"
 CHANGELOG="$HYPERAGENT_DIR/changelog.md"
 IDLE_THRESHOLD=300
 CHECK_INTERVAL=60
+MAX_TRANSCRIPTS_PER_CYCLE="${MAX_TRANSCRIPTS_PER_CYCLE:-5}"
 META_AGENT="$HYPERAGENT_DIR/meta_agent.md"
 UPGRADE_AVAILABLE="$HYPERAGENT_DIR/.upgrade-available"
 UPGRADE_CHECK_INTERVAL="${UPGRADE_CHECK_INTERVAL:-3600}"  # 1 hour
@@ -830,8 +831,15 @@ while true; do
     )
     all_transcripts=$(echo "$all_transcripts" | sort -u | grep -v '^$' || true)
 
+    processed_this_cycle=0
+
     for transcript in $all_transcripts; do
         [ -f "$transcript" ] || continue
+
+        if [ "$processed_this_cycle" -ge "$MAX_TRANSCRIPTS_PER_CYCLE" ]; then
+            log "Cycle cap reached ($MAX_TRANSCRIPTS_PER_CYCLE), deferring remaining transcripts"
+            break
+        fi
 
         current_mtime=$(get_mtime "$transcript")
         entry=$(get_ledger_entry "$transcript")
@@ -881,6 +889,8 @@ while true; do
         release_lock
 
         set_ledger_entry "$transcript" "$current_mtime" "0"
+        processed_this_cycle=$((processed_this_cycle + 1))
+        date +%s > "$HEARTBEAT"
     done
 
     sleep "$CHECK_INTERVAL"
