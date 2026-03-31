@@ -269,14 +269,23 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
    - Is it a watcher or hook change? → Show the diff and explain what it would change.
    - Is it a meta agent change? → The meta agent self-modifies, so flag for the user's judgment.
 
-6. Ask the user which changes (if any) to incorporate. For approved changes:
+6. **Cross-file consistency check.** For each new concept introduced by upstream changes (new notification type, new directory, new procedure step, new config key, new skill), scan the local hyperagent for files that reference the same category but do not yet handle the new member:
+   ```bash
+   # Example: upstream adds NOTIFY_DISCUSS. Find local files that reference NOTIFY_ types.
+   grep -rl 'NOTIFY_' <hyperagent_dir> --include='*.md' --include='*.sh'
+   ```
+   - For each match, check whether the file already accounts for the new concept.
+   - If it does not, flag it as **"may need updates"** and explain what is missing.
+   - Present these flags alongside the upstream diff so the user sees both the direct changes and the indirect consequences before deciding what to incorporate.
+
+7. Ask the user which changes (if any) to incorporate. For approved changes:
    - Read the relevant section from the upstream spec: `gh api repos/bioneural/graft/contents/hyperagent-spec.md --jq '.content' | base64 -d`
    - Apply the change to the local hyperagent file.
    - Log the incorporation in `<hyperagent_dir>/changelog.md`.
 
 ## Part 2: Contribute Back to Graft
 
-7. Review local changes that diverge from the blueprint. The generation baseline is in `<hyperagent_dir>/.graft-version` — this is the graft commit the hyperagent was originally built from. Compare key files against the upstream spec at that baseline and at HEAD to distinguish local customizations from upstream drift:
+8. Review local changes that diverge from the blueprint. The generation baseline is in `<hyperagent_dir>/.graft-version` — this is the graft commit the hyperagent was originally built from. Compare key files against the upstream spec at that baseline and at HEAD to distinguish local customizations from upstream drift:
    - `meta_agent.md` — has the meta agent evolved strategies worth sharing?
    - `skills/` — any new skills or significant skill improvements?
    - `tools/` — any tools that solve common problems?
@@ -287,13 +296,13 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
    gh api repos/bioneural/graft/contents/hyperagent-spec.md --jq '.content' | base64 -d > /tmp/graft-spec.md
    ```
 
-8. For each meaningful local divergence, assess whether it's:
+9. For each meaningful local divergence, assess whether it's:
    - **A bug fix** → worth contributing as an issue or PR
    - **A new capability** (skill, tool, strategy) → worth contributing as an issue describing the idea
    - **A local customization** → specific to this user, skip
    - **A meta agent self-modification** → potentially interesting if it represents a general improvement
 
-9. Present candidates to the user. For each one the user approves:
+10. Present candidates to the user. For each one the user approves:
    - **File as an issue**: Use `/hyperagent-issue` to file on `bioneural/graft` with the local change as context.
    - **Open a PR**: Fork graft (if not already forked), create a branch, apply the change to the spec, and open a PR:
      ```bash
@@ -304,17 +313,17 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
 
 ## Wrap Up
 
-10. Save the latest reviewed commit SHA:
+11. Save the latest reviewed commit SHA:
     ```bash
     echo "<latest_sha>" > <hyperagent_dir>/.last-upgrade-check
     ```
 
-11. Delete the upgrade notification file:
+12. Delete the upgrade notification file:
     ```bash
     rm -f <hyperagent_dir>/.upgrade-available
     ```
 
-12. Tell the user to `/hyperagent-reload` to review what changed.
+13. Tell the user to `/hyperagent-reload` to review what changed.
 
 If the user provides arguments: $ARGUMENTS — use them to filter (e.g. "just pull", "just contribute", "last 3 commits", "show everything").
 ```
