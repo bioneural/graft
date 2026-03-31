@@ -677,6 +677,33 @@ check_upstream_upgrade() {
     fi
 }
 
+cleanup_ledger() {
+    # Remove ledger entries for transcripts not modified in 48+ hours
+    # that have already been successfully processed
+    local tmp_ledger="$LEDGER.tmp"
+    local now
+    now=$(now_epoch)
+    local cutoff=$((now - 172800))  # 48 hours
+
+    while IFS=$'\t' read -r path current_mtime processed_mtime; do
+        # Keep if processed_mtime differs from current_mtime (not yet processed)
+        if [ "$current_mtime" != "$processed_mtime" ]; then
+            printf '%s\t%s\t%s\n' "$path" "$current_mtime" "$processed_mtime" >> "$tmp_ledger"
+            continue
+        fi
+        # Keep if modified recently
+        if [ "$current_mtime" -gt "$cutoff" ] 2>/dev/null; then
+            printf '%s\t%s\t%s\n' "$path" "$current_mtime" "$processed_mtime" >> "$tmp_ledger"
+        fi
+    done < "$LEDGER"
+
+    if [ -f "$tmp_ledger" ]; then
+        mv "$tmp_ledger" "$LEDGER"
+    else
+        : > "$LEDGER"
+    fi
+}
+
 run_meta_agent() {
     local trigger_transcript="$1"
     local recent
@@ -809,6 +836,7 @@ $diff_summary" \
 
     # Periodic cleanup
     cleanup_seen
+    cleanup_ledger
 }
 
 # --- Main loop ---
