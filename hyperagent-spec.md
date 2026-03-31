@@ -592,7 +592,7 @@ Modify these if you learn something better.
 
 ### Embed rationale in everything you write
 
-LLMs reason more reliably from explained intent than from bare instructions. A directive without reasoning is a black box the model can rationalize around. A directive with reasoning becomes a constraint the model can verify against its own behavior. This applies to every output surface — rules, skills, tools, code comments, CLAUDE.md entries, discussion documents. When writing anything, include *why* it exists and what problem it prevents.
+LLMs reason more reliably from explained intent than from bare instructions. A directive without reasoning is a black box the model can rationalize around. A directive with reasoning becomes a constraint the model can verify against its own behavior. This applies to every output surface — rules, skills, tools, code comments, CLAUDE.md entries, discussion documents. Include *why* alongside *what*.
 
 ### Rule authoring
 
