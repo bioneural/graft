@@ -723,9 +723,7 @@ run_meta_agent() {
         RECENT_TRANSCRIPTS="$recent" \
         claude -p "Read your instructions from $META_AGENT and execute your procedure." \
             --allowedTools "Read,Write,Edit,Bash,Glob,Grep" \
-            --max-turns 200 \
             --output-format json \
-            --bare \
             2>/dev/null) || true
 
     # Cancel the watchdog if we finished in time
@@ -814,8 +812,6 @@ Here is the git diff of your changes for reference:
 $diff_summary" \
                 --resume "$session_id" \
                 --allowedTools "Read,Write,Edit" \
-                --max-turns 5 \
-                --bare \
                 2>/dev/null || true
         fi
 
@@ -1269,6 +1265,13 @@ if [ "$(uname)" = "Darwin" ]; then
     <string>/tmp/hyperagent.log</string>
     <key>StandardErrorPath</key>
     <string>/tmp/hyperagent.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>$HOME</string>
+        <key>PATH</key>
+        <string>$PATH</string>
+    </dict>
 </dict>
 </plist>
 PLISTEOF
