@@ -618,6 +618,16 @@ resolve_project_path() {
     fi
 }
 
+pull_fast_forward() {
+    local repo_dir="$1"
+    if [ -z "$repo_dir" ] || [ ! -d "$repo_dir/.git" ]; then
+        return
+    fi
+    cd "$repo_dir"
+    git fetch 2>/dev/null || true
+    git merge --ff-only 2>/dev/null || true
+}
+
 commit_hyperagent_repo() {
     local tl_dr="$1"
     cd "$HYPERAGENT_DIR"
@@ -637,6 +647,7 @@ commit_project_repo() {
         return
     fi
     cd "$project_path"
+    pull_fast_forward "$project_path"
     if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
         git add -A
         git commit --author="Hyperagent <hyperagent@local>" \
@@ -864,6 +875,9 @@ is_own_transcript() {
 while true; do
     # Write heartbeat so hooks and /hyperagent-status can detect a stalled watcher
     date +%s > "$HEARTBEAT"
+
+    # Pull remote changes so the watcher operates on up-to-date state
+    pull_fast_forward "$HYPERAGENT_DIR"
 
     # Periodic upstream upgrade check
     check_upstream_upgrade
