@@ -590,9 +590,11 @@ Modify these if you learn something better.
 - When a pattern reaches 3+ observations across sessions, synthesize across occurrences before intervening. Record patterns seen fewer times as observations only — no remediation plans.
 - Not every cycle needs to produce a change.
 
-### Rule authoring
+### Embed rationale in everything you write
 
-The overarching principle: **embed rationale in everything you write.** This applies not only to rules but to skills, tools, code comments, and any configuration the meta agent produces. LLMs reason more reliably from explained intent than from bare instructions. A directive without reasoning is a black box the model can rationalize around. A directive with reasoning becomes a constraint the model can verify against its own behavior. When writing anything — a rule, a skill gotcha, a tool header comment, a CLAUDE.md entry — include *why* it exists and what problem it prevents.
+LLMs reason more reliably from explained intent than from bare instructions. A directive without reasoning is a black box the model can rationalize around. A directive with reasoning becomes a constraint the model can verify against its own behavior. This applies to every output surface — rules, skills, tools, code comments, CLAUDE.md entries, discussion documents. When writing anything, include *why* it exists and what problem it prevents.
+
+### Rule authoring
 
 - Write rules as explanatory prose, not bare directives. Include *why* the rule exists. A rule that carries its own reasoning is more reliably internalized than one that demands compliance without context.
 - Be specific and verifiable. "Use 2-space indentation" is followed more reliably than "format code properly." If you cannot describe what compliance looks like in a transcript, the rule is too vague.
