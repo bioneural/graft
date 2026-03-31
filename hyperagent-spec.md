@@ -991,6 +991,10 @@ Lessons from Anthropic's internal skill management (source: "Lessons from Buildi
 - **Persistent skill memory.** Skills may need cross-session state (logs, JSON, SQLite). Consider when building skills that learn from repeated use.
 - **Curation before distribution.** Experimental skills should prove their value before becoming permanent. Remove or consolidate skills that underperform.
 
+## Gotchas
+
+- **Do not maintain a cycle counter or per-cycle bookkeeping.** In early runs the meta agent invented a cycle counter in this file, bumping it every cycle even with no findings. Because the watcher commits whenever `git status --porcelain` is non-empty, this produced 63 consecutive no-op commits and 1,142 lines of changelog noise. Step 5 of the procedure means it: if nothing is actionable, do not touch any file — including this one. A silent exit is correct.
+
 ## Observations
 
 _No observations yet._
