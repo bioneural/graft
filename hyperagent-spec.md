@@ -540,6 +540,14 @@ CONSECUTIVE_FAILURES=0
 LAST_FAILURE_MSG=""
 MAX_CONSECUTIVE_FAILURES="${MAX_CONSECUTIVE_FAILURES:-3}"
 
+# Verify we are a top-level repo, not nested inside another project
+REPO_TOPLEVEL=$(git -C "$HYPERAGENT_DIR" rev-parse --show-toplevel 2>/dev/null) || true
+if [ -n "$REPO_TOPLEVEL" ] && [ "$REPO_TOPLEVEL" != "$HYPERAGENT_DIR" ]; then
+    echo "FATAL: HYPERAGENT_DIR ($HYPERAGENT_DIR) is inside another git repo ($REPO_TOPLEVEL)." >&2
+    echo "The hyperagent must be its own top-level repo. Reinstall at a standalone path." >&2
+    exit 1
+fi
+
 touch "$LEDGER" "$MARKER"
 mkdir -p "$SEEN_DIR"
 
@@ -834,6 +842,13 @@ $diff_summary" \
     cleanup_ledger
 }
 
+is_own_transcript() {
+    local transcript_path="$1"
+    local encoded_dir
+    encoded_dir=$(echo "$HYPERAGENT_DIR" | sed 's|/|-|g' | sed 's|^-||')
+    echo "$transcript_path" | grep -q "$encoded_dir"
+}
+
 # --- Main loop ---
 
 while true; do
@@ -862,6 +877,11 @@ while true; do
         if [ "$processed_this_cycle" -ge "$MAX_TRANSCRIPTS_PER_CYCLE" ]; then
             log "Cycle cap reached ($MAX_TRANSCRIPTS_PER_CYCLE), deferring remaining transcripts"
             break
+        fi
+
+        # Skip transcripts from the hyperagent's own project directory
+        if is_own_transcript "$transcript"; then
+            continue
         fi
 
         current_mtime=$(get_mtime "$transcript")
@@ -1164,6 +1184,19 @@ check_tcc_safe() {
     esac
 }
 check_tcc_safe "$HYPERAGENT_DIR"
+
+# --- Nested repo check ---
+check_not_nested_repo() {
+    local toplevel
+    toplevel=$(git -C "$1" rev-parse --show-toplevel 2>/dev/null) || return 0
+    if [ "$toplevel" != "$1" ]; then
+        echo "ERROR: $1 is inside another git repository ($toplevel)."
+        echo "The hyperagent must be its own top-level repo."
+        echo "Install at a standalone path, e.g. ~/hyperagent"
+        exit 1
+    fi
+}
+check_not_nested_repo "$HYPERAGENT_DIR"
 
 echo "=== Installing Hyperagent ==="
 
