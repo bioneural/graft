@@ -100,7 +100,7 @@ Restart Claude Code to pick up the hooks. The watcher runs as a system service �
 
 ## Skills
 
-- `/hyperagent-reload` — restart Claude Code to pick up CLAUDE.md changes
+- `/hyperagent-reload` — review and apply hyperagent configuration changes without restarting
 - `/hyperagent-changelog` — show recent hyperagent changes
 - `/hyperagent-revert` — roll back a specific hyperagent change
 - `/hyperagent-status` — check watcher health and recent activity
