@@ -536,6 +536,9 @@ CHECK_INTERVAL=60
 META_AGENT="$HYPERAGENT_DIR/meta_agent.md"
 UPGRADE_AVAILABLE="$HYPERAGENT_DIR/.upgrade-available"
 UPGRADE_CHECK_INTERVAL="${UPGRADE_CHECK_INTERVAL:-3600}"  # 1 hour
+CONSECUTIVE_FAILURES=0
+LAST_FAILURE_MSG=""
+MAX_CONSECUTIVE_FAILURES="${MAX_CONSECUTIVE_FAILURES:-3}"
 
 touch "$LEDGER" "$MARKER"
 mkdir -p "$SEEN_DIR"
@@ -859,7 +862,22 @@ while true; do
         fi
 
         acquire_lock
-        run_meta_agent "$transcript"
+
+        if run_meta_agent "$transcript"; then
+            CONSECUTIVE_FAILURES=0
+            LAST_FAILURE_MSG=""
+        else
+            CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
+            LAST_FAILURE_MSG=$(tail -1 /tmp/hyperagent.log 2>/dev/null || echo "unknown error")
+            if [ "$CONSECUTIVE_FAILURES" -ge "$MAX_CONSECUTIVE_FAILURES" ]; then
+                write_last_change "error" "Meta agent has failed $CONSECUTIVE_FAILURES consecutive times: $LAST_FAILURE_MSG. Run /hyperagent-status for details."
+                echo "$(date): Circuit breaker tripped after $CONSECUTIVE_FAILURES consecutive failures" >> /tmp/hyperagent.log
+                release_lock
+                set_ledger_entry "$transcript" "$current_mtime" "0"
+                break
+            fi
+        fi
+
         release_lock
 
         set_ledger_entry "$transcript" "$current_mtime" "0"
@@ -921,7 +939,7 @@ Two hooks notify the user of hyperagent changes. They use Claude Code's hook sys
 
 The notification mechanism:
 
-1. After committing changes, the watcher writes `~/hyperagent/.last-change` containing: epoch timestamp, notification type (`reload`/`skill`/`info`), and TL;DR, tab-separated on one line.
+1. After committing changes, the watcher writes `~/hyperagent/.last-change` containing: epoch timestamp, notification type (`reload`/`skill`/`info`/`error`), and TL;DR, tab-separated on one line.
 2. Each hook receives `session_id` in its JSON input. It compares the `.last-change` timestamp against a per-session file at `~/hyperagent/.seen/<session_id>`. If the change is newer than what the session last saw (or the session has no `.seen` file), the hook injects a notification and updates the `.seen` file.
 3. The watcher periodically cleans `.seen/` files older than 48 hours.
 
@@ -996,6 +1014,8 @@ if [ "$CHANGE_EPOCH" -gt "$SEEN_EPOCH" ] 2>/dev/null; then
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Run /hyperagent-reload to apply, /hyperagent-changelog for details.\"}"
     elif [ "$CHANGE_TYPE" = "skill" ]; then
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Already available (no reload needed). /hyperagent-changelog for details.\"}"
+    elif [ "$CHANGE_TYPE" = "error" ]; then
+        echo "{\"additionalContext\": \"[Hyperagent] WARNING: $CHANGE_TLDR\"}"
     else
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. /hyperagent-changelog for details.\"}"
     fi
@@ -1071,6 +1091,8 @@ if [ "$CHANGE_EPOCH" -gt "$SEEN_EPOCH" ] 2>/dev/null; then
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Run /hyperagent-reload to apply, /hyperagent-changelog for details.\"}"
     elif [ "$CHANGE_TYPE" = "skill" ]; then
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Already available (no reload needed). /hyperagent-changelog for details.\"}"
+    elif [ "$CHANGE_TYPE" = "error" ]; then
+        echo "{\"additionalContext\": \"[Hyperagent] WARNING: $CHANGE_TLDR\"}"
     else
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. /hyperagent-changelog for details.\"}"
     fi
