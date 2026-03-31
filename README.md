@@ -49,7 +49,7 @@ Examples of what a change might look like:
 - Creating a skill to automate a manual pattern.
 - Rewriting the meta agent's own instructions, because it found a better method of analysis.
 
-The next message you send, or the next session you start, a single line appears: what changed and whether `/hyperagent-reload` is needed. Each session tracks what it has already seen. No repetition. No interruption.
+The next message you send, or the next session you start, a single line appears: what changed and whether action is needed. Each session tracks what it has already seen. No repetition. No interruption.
 
 If a change degrades performance, the meta agent detects the regression on subsequent cycles and reverts it. You may also invoke `/hyperagent-revert` at any time. Every modification is recorded with a full diff in the changelog. Nothing is irreversible.
 
@@ -114,7 +114,7 @@ For project files: changes are committed with author `Hyperagent <hyperagent@loc
 
 Five skills are provided:
 
-- `/hyperagent-reload` — restart Claude Code to apply configuration changes.
+- `/hyperagent-reload` — review and apply hyperagent changes without restarting.
 - `/hyperagent-changelog` — display recent modifications.
 - `/hyperagent-revert` — roll back a specific change.
 - `/hyperagent-status` — check whether the watcher is running and show recent activity.

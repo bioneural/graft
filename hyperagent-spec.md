@@ -68,11 +68,21 @@ Skills that reference the hyperagent repo directory do so by reading `~/.claude/
 ```markdown
 ---
 name: hyperagent-reload
-description: Reload Claude Code to pick up CLAUDE.md changes. Use when the hyperagent notifies you of configuration updates.
-disable-model-invocation: true
+description: Check for and apply hyperagent configuration changes. Use when the hyperagent notifies you of updates.
 ---
-# Reload Claude Code
-!`kill -HUP $PPID`
+# Apply Hyperagent Changes
+
+First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use that path for all file references below.
+
+1. Read the hyperagent changelog at `<hyperagent_dir>/changelog.md`. Identify entries newer than the last reload (or all entries if this is the first run).
+2. For each change, classify it:
+   - **Hooks or permissions in `settings.json`** — already live via file watcher. Report as applied.
+   - **Skills or agents** — already live via hot-reload. Report as applied.
+   - **CLAUDE.md or rules files** — report what changed. These will take effect on the next `/compact` or session start.
+   - **MCP server configurations** — report that a session restart is required. Do not terminate the session.
+3. Summarize: list each change, its category, and its reload status.
+4. If CLAUDE.md or rules were modified, tell the user: "These changes will take effect on the next /compact or session start."
+5. If MCP servers were modified, tell the user: "MCP changes require a session restart. Run claude --resume when ready."
 ```
 
 ### `skills/hyperagent-changelog/SKILL.md`
@@ -117,7 +127,7 @@ First, read `~/.claude/hyperagent.json` to get the `hyperagent_dir` path. Use th
    - Run `git log --author="Hyperagent" --oneline` in the project repo to find the corresponding commit.
    - Run `git revert <hash> --no-edit` in the project repo.
 8. Append a revert entry to `<hyperagent_dir>/changelog.md` documenting what was reverted and why.
-9. Tell the user to `/hyperagent-reload` if a CLAUDE.md file was affected.
+9. Tell the user to `/hyperagent-reload` to review what changed.
 ```
 
 ### `skills/hyperagent-status/SKILL.md`
@@ -303,7 +313,7 @@ Your hyperagent is an independent implementation generated from the Graft bluepr
     rm -f <hyperagent_dir>/.upgrade-available
     ```
 
-12. Tell the user to `/hyperagent-reload` if any CLAUDE.md or hook files were affected.
+12. Tell the user to `/hyperagent-reload` to review what changed.
 
 If the user provides arguments: $ARGUMENTS — use them to filter (e.g. "just pull", "just contribute", "last 3 commits", "show everything").
 ```
@@ -401,7 +411,7 @@ When you create a new tool, also ensure it is referenced from wherever it needs 
 6. If a change is warranted, make it. See "Where to write" below.
 7. Update $HYPERAGENT_DIR/memory.md with what you observed, what you changed, your hypothesis, and what to look for next. Only write to memory when you have made a change or have a genuinely new insight worth recording.
 8. Write a summary to stdout. Use one of these prefixes so the watcher knows what happened:
-   - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed, user should /hyperagent-reload
+   - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed, user should /hyperagent-reload to review
    - `NOTIFY_SKILL: <tl;dr>` — a skill was created or modified, no reload needed (hot-reload)
    - `NOTIFY_INFO: <tl;dr>` — informational, no action needed from user
    - No output if no changes were made.
@@ -1064,7 +1074,7 @@ if [ "$CHANGE_EPOCH" -gt "$SEEN_EPOCH" ] 2>/dev/null; then
     echo "$CHANGE_EPOCH" > "$SEEN_DIR/$SESSION_ID"
 
     if [ "$CHANGE_TYPE" = "reload" ]; then
-        echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Run /hyperagent-reload to apply, /hyperagent-changelog for details.\"}"
+        echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Run /hyperagent-reload to review, /hyperagent-changelog for details.\"}"
     elif [ "$CHANGE_TYPE" = "skill" ]; then
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Already available (no reload needed). /hyperagent-changelog for details.\"}"
     elif [ "$CHANGE_TYPE" = "error" ]; then
@@ -1141,7 +1151,7 @@ if [ "$CHANGE_EPOCH" -gt "$SEEN_EPOCH" ] 2>/dev/null; then
     echo "$CHANGE_EPOCH" > "$SEEN_DIR/$SESSION_ID"
 
     if [ "$CHANGE_TYPE" = "reload" ]; then
-        echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Run /hyperagent-reload to apply, /hyperagent-changelog for details.\"}"
+        echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Run /hyperagent-reload to review, /hyperagent-changelog for details.\"}"
     elif [ "$CHANGE_TYPE" = "skill" ]; then
         echo "{\"additionalContext\": \"[Hyperagent] $CHANGE_TLDR. Already available (no reload needed). /hyperagent-changelog for details.\"}"
     elif [ "$CHANGE_TYPE" = "error" ]; then
