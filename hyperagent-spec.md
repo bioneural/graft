@@ -835,6 +835,13 @@ $diff_summary" \
     cleanup_ledger
 }
 
+is_own_transcript() {
+    local transcript_path="$1"
+    local encoded_dir
+    encoded_dir=$(echo "$HYPERAGENT_DIR" | sed 's|/|-|g' | sed 's|^-||')
+    echo "$transcript_path" | grep -q "$encoded_dir"
+}
+
 # --- Main loop ---
 
 while true; do
@@ -863,6 +870,11 @@ while true; do
         if [ "$processed_this_cycle" -ge "$MAX_TRANSCRIPTS_PER_CYCLE" ]; then
             log "Cycle cap reached ($MAX_TRANSCRIPTS_PER_CYCLE), deferring remaining transcripts"
             break
+        fi
+
+        # Skip transcripts from the hyperagent's own project directory
+        if is_own_transcript "$transcript"; then
+            continue
         fi
 
         current_mtime=$(get_mtime "$transcript")
