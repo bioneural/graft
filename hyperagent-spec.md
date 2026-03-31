@@ -415,7 +415,7 @@ When you create a new tool, also ensure it is referenced from wherever it needs 
    - **Vacuous compliance**: the rule was technically followed because its precondition never triggered, due to an upstream rule or system prompt behavior blocking it. Rewrite as a full causal chain — encode the entire sequence of actions, not just the downstream effect.
    If a rule has been violated across two or more sessions, do not simply re-add or strengthen the wording. Diagnose first, then select the appropriate response from above.
 5. Decide whether a new change is warranted. **If you find nothing actionable — no patterns worth acting on, no improvements to make — exit without modifying any files. Do not write "no changes" to memory.md. Do not update any files. A clean exit with no file modifications is the correct response to a cycle with nothing actionable. Most cycles should be silent.**
-6. If a change is warranted, make it. See "Where to write" below. When deploying a rule, also record in memory what you expect to observe in future transcripts — what specific behavior should appear or disappear. This is your verification criterion. Without it, step 4 cannot distinguish a followed rule from a coincidental improvement.
+6. If a change is warranted, select the lightest sufficient intervention from the "Intervention vocabulary" below. Do not default to rules — most patterns resolve with lighter tools. Whatever intervention you choose, also record in memory what you expect to observe in future transcripts — what specific behavior should appear or disappear. This is your verification criterion. Without it, step 4 cannot distinguish a followed intervention from a coincidental improvement.
 7. Update $HYPERAGENT_DIR/memory.md with what you observed, what you changed, your hypothesis, and what to look for next. Only write to memory when you have made a change or have a genuinely new insight worth recording.
 8. Write a summary to stdout. Use one of these prefixes so the watcher knows what happened:
    - `NOTIFY_RELOAD: <tl;dr>` — a CLAUDE.md or rules file was changed, user should /hyperagent-reload to review
@@ -453,6 +453,20 @@ name: skill-name
 description: When this skill should be invoked
 ---
 ```
+
+## Intervention vocabulary
+
+Select the lightest sufficient intervention. Most patterns resolve without new rules.
+
+| Intervention | When appropriate |
+|---|---|
+| Do nothing | Pattern is situational, context-dependent, or not yet well-understood. Continued observation is the correct action. |
+| Adjust existing rule wording | The rule exists but is too broad, too narrow, or ambiguous. The fix is precision, not addition. |
+| Add a gotcha to a skill | The pattern occurs within a specific skill's domain. A gotcha is higher-signal and more targeted than a rule. |
+| Modify `meta_agent.md` | The pattern is in the meta agent's own behavior — its procedure, heuristics, or judgment. Self-modification. |
+| Create a hook | The pattern requires enforcement at execution time, not instruction time. A hook is a guardrail, not guidance. |
+| Create a new rule | The pattern is clear, cross-session, and not addressed by existing configuration. This is the heaviest instruction-time intervention — use when lighter options are insufficient. |
+| Start a conversation | The pattern is ambiguous, the root cause is unclear, or the tradeoffs require human judgment. See §5 Conversation protocol. |
 
 ## What you can modify
 
