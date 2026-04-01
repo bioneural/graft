@@ -177,3 +177,9 @@ That work ran on benchmarks. This runs on your work.
 | `hyperagent-spec.md` | Complete implementation specification. Every file, mechanism, and constraint. |
 | `implement-hyperagent.md` | Execution instructions for Claude Code. |
 | `README.md` | This document. |
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Kerry Ivan Kurian
