@@ -660,6 +660,16 @@ CONSECUTIVE_FAILURES=0
 LAST_FAILURE_MSG=""
 MAX_CONSECUTIVE_FAILURES="${MAX_CONSECUTIVE_FAILURES:-3}"
 
+# Resolve claude binary path from config, fall back to PATH
+CLAUDE_CMD="claude"
+CONFIG_FILE="$HOME/.claude/hyperagent.json"
+if [ -f "$CONFIG_FILE" ]; then
+    configured_path=$(jq -r '.claude_path // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
+    if [ -n "$configured_path" ] && [ -x "$configured_path" ]; then
+        CLAUDE_CMD="$configured_path"
+    fi
+fi
+
 # Verify we are a top-level repo, not nested inside another project
 REPO_TOPLEVEL=$(git -C "$HYPERAGENT_DIR" rev-parse --show-toplevel 2>/dev/null) || true
 if [ -n "$REPO_TOPLEVEL" ] && [ "$REPO_TOPLEVEL" != "$HYPERAGENT_DIR" ]; then
@@ -859,7 +869,7 @@ run_meta_agent() {
     output=$(HYPERAGENT_DIR="$HYPERAGENT_DIR" \
         TRIGGER_TRANSCRIPT="$trigger_transcript" \
         RECENT_TRANSCRIPTS="$recent" \
-        claude -p "Read your instructions from $META_AGENT and execute your procedure." \
+        $CLAUDE_CMD -p "Read your instructions from $META_AGENT and execute your procedure." \
             --allowedTools "Read,Write,Edit,Bash,Glob,Grep" \
             --output-format json \
             2>/dev/null) || true
@@ -924,7 +934,7 @@ run_meta_agent() {
         fi
 
         if [ -n "$session_id" ]; then
-            claude -p "You just made changes. Write a changelog entry and append it to $CHANGELOG.
+            $CLAUDE_CMD -p "You just made changes. Write a changelog entry and append it to $CHANGELOG.
 
 Use this exact format:
 
@@ -1367,6 +1377,10 @@ command -v claude >/dev/null 2>&1 || { echo "ERROR: claude CLI not found."; exit
 command -v git >/dev/null 2>&1 || { echo "ERROR: git not found."; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq not found."; exit 1; }
 
+# Resolve claude binary path for service configuration
+CLAUDE_BIN=$(command -v claude)
+CLAUDE_BIN_DIR=$(dirname "$CLAUDE_BIN")
+
 # Create runtime files (not committed)
 touch "$HYPERAGENT_DIR/ledger"
 touch "$HYPERAGENT_DIR/.last-check"
@@ -1382,7 +1396,7 @@ chmod +x "$HYPERAGENT_DIR/hooks/on-prompt.sh"
 
 # --- Write config file with resolved path ---
 
-echo "{\"hyperagent_dir\": \"$HYPERAGENT_DIR\"}" > "$CLAUDE_DIR/hyperagent.json"
+printf '{"hyperagent_dir": "%s", "claude_path": "%s"}\n' "$HYPERAGENT_DIR" "$CLAUDE_BIN" > "$CLAUDE_DIR/hyperagent.json"
 echo "Wrote config: $CLAUDE_DIR/hyperagent.json"
 
 # --- Symlink skills into ~/.claude/skills/ ---
@@ -1437,6 +1451,7 @@ echo "Registered hooks: SessionStart, UserPromptSubmit"
 
 if [ "$(uname)" = "Darwin" ]; then
     # macOS: launchd
+    mkdir -p "$HOME/Library/LaunchAgents"
     PLIST="$HOME/Library/LaunchAgents/com.bioneural.hyperagent.plist"
     cat > "$PLIST" << PLISTEOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -1464,7 +1479,7 @@ if [ "$(uname)" = "Darwin" ]; then
         <key>HOME</key>
         <string>$HOME</string>
         <key>PATH</key>
-        <string>$PATH</string>
+        <string>$CLAUDE_BIN_DIR:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
 </dict>
 </plist>
