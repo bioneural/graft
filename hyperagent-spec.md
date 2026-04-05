@@ -56,6 +56,7 @@ ledger                  # active transcript tracking; rebuilt from filesystem on
 # Upgrade state — polling artifacts, not part of system identity
 .last-upgrade-check     # last reviewed upstream SHA
 .upgrade-available      # flag file for pending upstream changes
+.last-upstream-poll     # watcher polling timestamp; overwritten each check
 
 # Conversation artifacts — user-facing discussion docs, not system config
 discussions/            # meta agent discussion documents awaiting user input
@@ -1021,7 +1022,7 @@ while true; do
         [ -f "$transcript" ] || continue
 
         if [ "$processed_this_cycle" -ge "$MAX_TRANSCRIPTS_PER_CYCLE" ]; then
-            log "Cycle cap reached ($MAX_TRANSCRIPTS_PER_CYCLE), deferring remaining transcripts"
+            echo "$(date): Cycle cap reached ($MAX_TRANSCRIPTS_PER_CYCLE), deferring remaining transcripts"
             break
         fi
 
@@ -1374,6 +1375,7 @@ echo "=== Installing Hyperagent ==="
 
 # Prerequisites
 command -v claude >/dev/null 2>&1 || { echo "ERROR: claude CLI not found."; exit 1; }
+command -v gh >/dev/null 2>&1 || { echo "ERROR: gh not found."; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "ERROR: git not found."; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq not found."; exit 1; }
 
@@ -1599,12 +1601,13 @@ fi
 # Remove config file
 rm -f "$CLAUDE_DIR/hyperagent.json"
 
-# Clean runtime files
-rm -f "$HYPERAGENT_DIR/ledger"
-rm -f "$HYPERAGENT_DIR/.last-check"
-rm -f "$HYPERAGENT_DIR/.lock"
-rm -f "$HYPERAGENT_DIR/.last-change"
-rm -rf "$HYPERAGENT_DIR/.seen"
+# Clean runtime files — derived from .gitignore so the two never drift
+while IFS= read -r entry; do
+    entry="${entry%%#*}"                        # strip comments
+    entry="$(echo "$entry" | xargs)"            # trim whitespace
+    [ -z "$entry" ] && continue
+    rm -rf "${HYPERAGENT_DIR:?}/$entry"
+done < "$HYPERAGENT_DIR/.gitignore"
 
 echo ""
 echo "=== Hyperagent uninstalled ==="

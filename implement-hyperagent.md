@@ -32,24 +32,7 @@ git config user.email "hyperagent@local"
 
 ## Step 2: Create all files from the spec
 
-Create every file listed in §1 of the spec, with the exact contents specified in the corresponding sections. The files are:
-
-1. `.gitignore` — §2
-2. `meta_agent.md` — §5 (the full markdown content inside the code fence)
-3. `watcher.sh` — §6 (the full bash script). Mark executable.
-4. `memory.md` — §7
-5. `changelog.md` — §8
-6. `tools/` — empty directory. Add a `.gitkeep` file so git tracks it.
-7. `hooks/on-session-start.sh` — §9. Mark executable.
-8. `hooks/on-prompt.sh` — §9. Mark executable.
-9. `skills/hyperagent-reload/SKILL.md` — §3
-10. `skills/hyperagent-changelog/SKILL.md` — §3. Skills read `~/.claude/hyperagent.json` for the repo path at runtime.
-11. `skills/hyperagent-revert/SKILL.md` — §3.
-12. `skills/hyperagent-status/SKILL.md` — §3.
-13. `skills/hyperagent-issue/SKILL.md` — §3.
-14. `skills/hyperagent-upgrade/SKILL.md` — §3.
-15. `install.sh` — §10. Mark executable.
-16. `uninstall.sh` — §11. Mark executable.
+Create every file listed in the §1 repo structure tree, with the exact contents specified in the corresponding sections. The section reference is noted next to each file in the tree (e.g. `§5`, `§6`). Mark files executable where the spec says to — look for `chmod +x` directives at the end of each section. For empty directories (like `tools/`), add a `.gitkeep` file so git tracks them.
 
 After creating all files, stamp the graft version used to generate the hyperagent:
 
@@ -59,7 +42,7 @@ gh api repos/bioneural/graft/commits --jq '.[0].sha' > .graft-version
 
 This records which graft commit the hyperagent was generated from. The `/hyperagent-upgrade` skill uses it as the baseline for diffing upstream changes.
 
-Do NOT create runtime files (`ledger`, `.last-check`, `.lock`, `.last-change`, `.heartbeat`, `.seen/`). These are created by `install.sh` or at runtime.
+Do NOT create any of the files listed in the §2 `.gitignore`. These are ephemeral runtime files created by `install.sh` or at runtime.
 
 ## Step 3: Create the README
 
@@ -128,60 +111,35 @@ INSTALL_DIR/uninstall.sh
 
 ## Step 4: Validate
 
+All validation derives from the spec. Do not hardcode lists — cross-reference the spec sections so that adding something to the spec automatically extends the checks.
+
 Run these checks before committing:
 
-```bash
-cd INSTALL_DIR
+1. **All required files exist.** Parse the repo structure tree in §1. For every file path listed, verify it exists under INSTALL_DIR. Also verify `README.md`, `tools/.gitkeep`, and `.graft-version`.
 
-# All required files exist
-for f in .gitignore meta_agent.md watcher.sh memory.md changelog.md \
-         hooks/on-session-start.sh hooks/on-prompt.sh \
-         skills/hyperagent-reload/SKILL.md skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md skills/hyperagent-upgrade/SKILL.md \
-         install.sh uninstall.sh README.md tools/.gitkeep .graft-version; do
-    [ -f "$f" ] || { echo "MISSING: $f"; exit 1; }
-done
+2. **Scripts are executable.** Find every `chmod +x` directive in the spec. Verify each named file has its executable bit set.
 
-# Scripts are executable
-for f in watcher.sh hooks/on-session-start.sh hooks/on-prompt.sh install.sh uninstall.sh; do
-    [ -x "$f" ] || { echo "NOT EXECUTABLE: $f"; exit 1; }
-done
+3. **`.gitignore` is complete.** Parse the code block in §2. For every non-comment, non-blank line, verify it appears in `.gitignore`.
 
-# .gitignore contains required entries
-for entry in ledger .last-check .lock .last-change .heartbeat .seen/ .last-upgrade-check .upgrade-available; do
-    grep -qF "$entry" .gitignore || { echo "MISSING FROM .gitignore: $entry"; exit 1; }
-done
+4. **All skills reference the config file.** For every skill defined in §3, verify its `SKILL.md` contains `hyperagent.json`.
 
-# Skills reference the config file for path resolution
-for f in skills/hyperagent-changelog/SKILL.md skills/hyperagent-revert/SKILL.md skills/hyperagent-status/SKILL.md skills/hyperagent-issue/SKILL.md skills/hyperagent-upgrade/SKILL.md; do
-    grep -q "hyperagent.json" "$f" || { echo "MISSING CONFIG REFERENCE: $f"; exit 1; }
-done
+5. **`.graft-version` is valid.** Verify it contains a 40-character hex SHA.
 
-# .graft-version contains a commit SHA
-grep -qE '^[0-9a-f]{40}$' .graft-version || { echo "FAIL: .graft-version missing or invalid"; exit 1; }
+6. **No python references.** `grep -r "python3\|python" --include="*.sh" --include="*.md" .` should find nothing.
 
-# No python references
-grep -r "python3\|python" --include="*.sh" --include="*.md" . && { echo "FAIL: python reference found"; exit 1; } || true
+7. **Watcher uses jq.** `grep -q "jq" watcher.sh`.
 
-# Watcher uses jq for project path resolution
-grep -q "jq" watcher.sh || { echo "FAIL: watcher.sh should use jq"; exit 1; }
+8. **`install.sh` checks all dependencies.** The spec intro lists all dependencies. For each one, verify `install.sh` contains a `command -v` check for it.
 
-# install.sh checks all prerequisites
-for dep in claude git jq; do
-    grep -q "command -v $dep" install.sh || { echo "FAIL: install.sh missing check for $dep"; exit 1; }
-done
+9. **`install.sh` sets up a system service.** Verify it references `launchctl` or `systemctl`.
 
-# install.sh sets up system service
-grep -q "launchctl\|systemctl" install.sh || { echo "FAIL: install.sh missing service setup"; exit 1; }
+10. **`uninstall.sh` tears down the system service.** Verify it references `launchctl` or `systemctl`.
 
-# uninstall.sh tears down system service
-grep -q "launchctl\|systemctl" uninstall.sh || { echo "FAIL: uninstall.sh missing service teardown"; exit 1; }
+11. **README has no placeholders.** Verify `README.md` does not contain the literal strings `GH_USER` or `INSTALL_DIR`.
 
-# README has actual username and path, not placeholders
-grep -q 'GH_USER' README.md && { echo "FAIL: README still has GH_USER placeholder"; exit 1; } || true
-grep -q 'INSTALL_DIR' README.md && { echo "FAIL: README still has INSTALL_DIR placeholder"; exit 1; } || true
+12. **Shell scripts pass `shellcheck`.** If `shellcheck` is available, run it on all `.sh` files and fix any errors.
 
-echo "ALL CHECKS PASSED"
-```
+If all checks pass, print `ALL CHECKS PASSED`.
 
 ## Step 5: Commit
 
