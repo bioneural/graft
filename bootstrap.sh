@@ -43,10 +43,18 @@ echo "Claude Code: ok"
 GH_USER=$(gh api user --jq '.login')
 echo "GitHub user: $GH_USER"
 
-# Check if repo already exists
+# Check if repo already exists on GitHub
 if gh repo view "$GH_USER/hyperagent" >/dev/null 2>&1; then
-    echo "ERROR: $GH_USER/hyperagent already exists. Delete it first or clone it directly."
-    exit 1
+    if [ -d "$INSTALL_DIR" ]; then
+        echo "Repo $GH_USER/hyperagent exists and $INSTALL_DIR is present."
+        echo "Run $INSTALL_DIR/install.sh directly."
+        exit 0
+    fi
+    echo "Repo $GH_USER/hyperagent exists. Cloning to $INSTALL_DIR..."
+    gh repo clone "$GH_USER/hyperagent" "$INSTALL_DIR"
+    echo "Running install.sh..."
+    "$INSTALL_DIR/install.sh"
+    exit 0
 fi
 
 if [ -d "$INSTALL_DIR" ]; then
