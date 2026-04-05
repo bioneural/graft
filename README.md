@@ -112,13 +112,14 @@ For global files: the changelog is the version history. Rollback reads the previ
 
 For project files: changes are committed with author `Hyperagent <hyperagent@local>` and prefix `[hyperagent]`. Rollback is `git revert`.
 
-Five skills are provided:
+These skills are provided:
 
 - `/hyperagent-reload` — review and apply hyperagent changes without restarting.
 - `/hyperagent-changelog` — display recent modifications.
 - `/hyperagent-revert` — roll back a specific change.
 - `/hyperagent-status` — check whether the watcher is running and show recent activity.
 - `/hyperagent-issue` — file an issue on the Graft repo with system diagnostics attached.
+- `/hyperagent-upgrade` — check for Graft blueprint updates and contribute local improvements back.
 
 ---
 
@@ -177,6 +178,12 @@ That work ran on benchmarks. This runs on your work.
 | `hyperagent-spec.md` | Complete implementation specification. Every file, mechanism, and constraint. |
 | `implement-hyperagent.md` | Execution instructions for Claude Code. |
 | `README.md` | This document. |
+
+---
+
+## Acknowledgments
+
+- [@foxyblocks](https://github.com/foxyblocks) — surfaced the watcher's false-positive trigger boundary
 
 ---
 
