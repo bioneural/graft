@@ -712,7 +712,7 @@ set_ledger_entry() {
 }
 
 get_recent_transcripts() {
-    find "$PROJECTS_DIR" -name "*.jsonl" -mmin -2880 -type f 2>/dev/null | head -20
+    find "$PROJECTS_DIR" -path "*/sessions/*.jsonl" -mmin -2880 -type f 2>/dev/null | head -20
 }
 
 resolve_project_path() {
@@ -994,7 +994,7 @@ while true; do
     # Periodic upstream upgrade check
     check_upstream_upgrade
 
-    modified=$(find "$PROJECTS_DIR" -name "*.jsonl" -newer "$MARKER" -type f 2>/dev/null || true)
+    modified=$(find "$PROJECTS_DIR" -path "*/sessions/*.jsonl" -newer "$MARKER" -type f 2>/dev/null || true)
     touch "$MARKER"
 
     now=$(now_epoch)
