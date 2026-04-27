@@ -749,10 +749,37 @@ pull_fast_forward() {
     git merge --ff-only 2>/dev/null || true
 }
 
+# Returns porcelain output minus paths listed in §2 .gitignore. The watcher
+# uses this — not raw `git status --porcelain` — to decide whether anything
+# meaningful changed. Filtering here (rather than relying solely on .gitignore)
+# self-heals the pathology where state files committed under an older
+# .gitignore stay tracked forever, keeping the repo permanently dirty and
+# triggering a no-op changelog Claude session every cycle.
+meaningful_changes() {
+    cd "$HYPERAGENT_DIR"
+    git status --porcelain 2>/dev/null | awk '
+        {
+            path = substr($0, 4)
+            sub(/.* -> /, "", path)
+        }
+        path == "ledger"               { next }
+        path == ".last-check"          { next }
+        path == ".lock"                { next }
+        path == ".heartbeat"           { next }
+        path == ".last-change"         { next }
+        path == ".last-upgrade-check"  { next }
+        path == ".upgrade-available"   { next }
+        path == ".last-upstream-poll"  { next }
+        path ~ /^\.seen\//             { next }
+        path ~ /^discussions\//        { next }
+        { print }
+    '
+}
+
 commit_hyperagent_repo() {
     local tl_dr="$1"
     cd "$HYPERAGENT_DIR"
-    if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    if [ -n "$(meaningful_changes)" ]; then
         git add -A
         git commit --author="Hyperagent <hyperagent@local>" \
             -m "[hyperagent] ${tl_dr:-auto-commit}" \
@@ -905,8 +932,7 @@ run_meta_agent() {
     # --- Phase 2: Check if anything changed ---
 
     local hyperagent_changed=""
-    cd "$HYPERAGENT_DIR"
-    if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    if [ -n "$(meaningful_changes)" ]; then
         hyperagent_changed="yes"
     fi
 
@@ -1521,6 +1547,25 @@ if [ ! -d "$HYPERAGENT_DIR/.git" ]; then
     git -C "$HYPERAGENT_DIR" add -A
     git -C "$HYPERAGENT_DIR" commit --author="Hyperagent <hyperagent@local>" \
         -m "[hyperagent] initial install"
+fi
+
+# --- Self-heal: untrack ephemeral state committed by older installs ---
+# A pre-existing tracked .heartbeat / ledger / .seen entry keeps
+# `git status` permanently dirty, which causes the watcher to invoke a
+# full meta-agent + changelog Claude session every cycle. Untrack any
+# tracked-but-gitignored paths so the watcher's dirty check converges
+# on meaningful changes.
+if [ -d "$HYPERAGENT_DIR/.git" ]; then
+    tracked_ignored=$(git -C "$HYPERAGENT_DIR" ls-files -ci --exclude-standard 2>/dev/null || true)
+    if [ -n "$tracked_ignored" ]; then
+        echo "Untracking ephemeral state files committed by an earlier install:"
+        printf '  %s\n' $tracked_ignored
+        # shellcheck disable=SC2086
+        git -C "$HYPERAGENT_DIR" rm --cached --quiet -r -- $tracked_ignored
+        git -C "$HYPERAGENT_DIR" commit --author="Hyperagent <hyperagent@local>" \
+            -m "[hyperagent] untrack ephemeral state (no-op-cycle fix)" \
+            >/dev/null 2>&1 || true
+    fi
 fi
 
 echo ""
