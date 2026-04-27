@@ -189,4 +189,4 @@ That work ran on benchmarks. This runs on your work.
 
 ## License
 
-[MIT](LICENSE) © 2026 Kerry Ivan Kurian
+[MIT](LICENSE) © 2026 Fort Asset LLC, a Washington State limited liability company.
